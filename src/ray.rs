@@ -10,3 +10,9 @@ impl Ray {
         Ray { org, dir }
     }
 }
+
+pub struct HitRecord {
+    pub distance: f64,
+    pub hitpoint: Point3,
+    pub normal: Vec3,
+}
