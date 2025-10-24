@@ -1,4 +1,7 @@
-use crate::math::{Point3, Vec3};
+use crate::{
+    material::Bxdf,
+    math::{Color, Point3, Vec3},
+};
 
 pub struct Ray {
     pub org: Point3,
@@ -15,4 +18,7 @@ pub struct HitRecord {
     pub distance: f64,
     pub hitpoint: Point3,
     pub normal: Vec3,
+    pub color: Color,
+    pub bxdf: Bxdf,
+    pub id: i32,
 }

@@ -1,5 +1,6 @@
 use crate::{
     math::{INF, Point3, Vec3, fmax, fmin},
+    object::Object,
     ray::{HitRecord, Ray},
 };
 
@@ -29,7 +30,7 @@ impl Add<&Self> for AABB {
 }
 
 impl AABB {
-    pub fn empty_box() -> Self {
+    pub fn empty() -> Self {
         AABB {
             min_p: Vec3::new(INF),
             max_p: Vec3::new(-INF),
@@ -117,5 +118,13 @@ impl AABB {
             max_p.2 += 0.01;
         }
         AABB { min_p, max_p }
+    }
+
+    pub fn entire_box(objs: &Vec<&Object>) -> Self {
+        let mut bbox = AABB::empty();
+        for obj in objs {
+            bbox = bbox + obj.get_bbox();
+        }
+        bbox
     }
 }
