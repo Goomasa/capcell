@@ -1,17 +1,11 @@
 use crate::{
     material::Bxdf,
-    math::{Color, Point3, Vec3},
+    math::{Color, INF, Point3, Vec3},
 };
 
 pub struct Ray {
     pub org: Point3,
     pub dir: Vec3,
-}
-
-impl Ray {
-    pub fn new(org: Point3, dir: Vec3) -> Self {
-        Ray { org, dir }
-    }
 }
 
 pub struct HitRecord {
@@ -21,4 +15,17 @@ pub struct HitRecord {
     pub color: Color,
     pub bxdf: Bxdf,
     pub id: i32,
+}
+
+impl HitRecord {
+    pub fn new() -> Self {
+        HitRecord {
+            distance: INF,
+            hitpoint: Vec3::zero(),
+            normal: Vec3::zero(),
+            color: Vec3::zero(),
+            bxdf: Bxdf::Lambertian,
+            id: -1,
+        }
+    }
 }

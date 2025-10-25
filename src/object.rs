@@ -10,6 +10,7 @@ pub enum Axis {
     Z,
 }
 
+#[allow(unused)]
 pub enum Object {
     Sphere {
         center: Point3,
@@ -42,6 +43,7 @@ pub enum Object {
     },
 }
 
+#[allow(unused)]
 impl Object {
     pub fn set_sphere(
         center: Point3,
@@ -230,14 +232,6 @@ impl Object {
         let bbox = self.get_bbox();
         (bbox.min_p + bbox.max_p) / 2.
     }
-}
-
-pub fn sphere_uv(p: &Point3, center: &Point3) -> (f64, f64) {
-    let dir = (*p - *center).normalize();
-    let theta = dir.1.acos();
-    let mut phi = dir.0.atan2(dir.2);
-    phi = if phi < 0. { phi + 2. * PI } else { phi };
-    (phi / (2. * PI), theta / PI)
 }
 
 fn hit_sphere(

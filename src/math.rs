@@ -73,6 +73,10 @@ impl Vec3 {
     pub fn normalize(&self) -> Self {
         *self / self.length()
     }
+
+    pub fn max_elm(&self) -> f64 {
+        fmax(self.0, fmax(self.1, self.2))
+    }
 }
 
 pub fn dot(v: Vec3, w: Vec3) -> f64 {
@@ -87,6 +91,10 @@ pub fn cross(v: Vec3, w: Vec3) -> Vec3 {
     )
 }
 
+pub fn multiply(v: &Vec3, w: &Vec3) -> Vec3 {
+    Vec3(v.0 * w.0, v.1 * w.1, v.2 * w.2)
+}
+
 pub fn fmax(a: f64, b: f64) -> f64 {
     if a > b { a } else { b }
 }
@@ -95,11 +103,18 @@ pub fn fmin(a: f64, b: f64) -> f64 {
     if a < b { a } else { b }
 }
 
-pub fn is_valid(v: f64) -> bool {
-    if v.is_nan() {
+pub fn is_valid(v: &Vec3) -> bool {
+    if v.0.is_nan() || v.1.is_nan() || v.2.is_nan() {
         return false;
-    } else if v < 0. {
+    } else if v.0 < 0. || v.1 < 0. || v.2 < 0. {
         return false;
     }
     true
+}
+
+pub fn gamma(v: Color) -> (u32, u32, u32) {
+    let r = (v.0.clamp(0., 1.).powf(1. / 2.2) * 255.) as u32;
+    let g = (v.1.clamp(0., 1.).powf(1. / 2.2) * 255.) as u32;
+    let b = (v.2.clamp(0., 1.).powf(1. / 2.2) * 255.) as u32;
+    (r, g, b)
 }

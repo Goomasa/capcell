@@ -9,7 +9,7 @@ pub enum Bxdf {
     Lambertian,
     Light,
     MicroBrdf { ax: f64, ay: f64 },
-    MicroBtdf { a: f64 },
+    MicroBtdf { a: f64, ior: f64 },
 }
 
 #[allow(unused)]
@@ -25,8 +25,8 @@ impl Bxdf {
         Self::MicroBrdf { ax, ay }
     }
 
-    pub fn set_microbtdf(a: f64) -> Self {
-        Self::MicroBtdf { a }
+    pub fn set_microbtdf(a: f64, ior: f64) -> Self {
+        Self::MicroBtdf { a, ior }
     }
 }
 
@@ -48,7 +48,7 @@ pub fn sample_cos_hemisphere(normal: &Vec3, rand: &mut XorRand) -> Vec3 {
 }
 
 pub fn pdf_cos_hemisphere(dir: &Vec3, normal: &Vec3) -> f64 {
-    dot(*dir, *normal).abs() / PI
+    fmax(dot(*dir, *normal).abs() / PI, 0.)
 }
 
 pub fn reflection_dir(normal: Vec3, in_dir: Vec3) -> Vec3 {
@@ -62,7 +62,7 @@ pub fn refraction_dir(
     in_dir: Vec3,
     rand: &mut XorRand,
 ) -> (bool, Vec3, f64) {
-    //return (is_refract, new_dir, reflectance/transmittance)
+    //return (is_refract, new_dir, reflectance)
     let reflection_dir = reflection_dir(normal, in_dir);
     let nnt = ior_to / ior_from;
     let ddn = dot(in_dir, normal);
@@ -82,12 +82,11 @@ pub fn refraction_dir(
         1. - dot(refraction_dir, -normal)
     };
     let fresnel_reflectance = r0 + (1. - r0) * c.powi(5);
-    let reflection_prob = fresnel_reflectance;
 
-    if rand.next01() < reflection_prob {
+    if rand.next01() < fresnel_reflectance {
         (false, reflection_dir, fresnel_reflectance)
     } else {
-        (true, refraction_dir, 1. - fresnel_reflectance)
+        (true, refraction_dir, fresnel_reflectance)
     }
 }
 
