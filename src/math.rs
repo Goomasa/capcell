@@ -91,7 +91,7 @@ pub fn cross(v: Vec3, w: Vec3) -> Vec3 {
     )
 }
 
-pub fn multiply(v: &Vec3, w: &Vec3) -> Vec3 {
+pub fn multiply(v: Vec3, w: Vec3) -> Vec3 {
     Vec3(v.0 * w.0, v.1 * w.1, v.2 * w.2)
 }
 

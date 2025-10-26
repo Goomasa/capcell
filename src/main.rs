@@ -73,7 +73,15 @@ pub fn cornel_box() {
         obj_id,
     );
 
-    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5];
+    let sphere = Object::set_sphere(
+        Vec3(15., 7., -13.),
+        7.,
+        Bxdf::MicroBrdf { ax: 0.2, ay: 0.5 },
+        Vec3::new(0.99),
+        obj_id,
+    );
+
+    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &sphere];
 
     let camera = LensModel::new(
         600,

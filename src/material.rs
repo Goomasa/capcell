@@ -20,14 +20,6 @@ impl Bxdf {
             _ => false,
         }
     }
-
-    pub fn set_microbrdf(ax: f64, ay: f64) -> Self {
-        Self::MicroBrdf { ax, ay }
-    }
-
-    pub fn set_microbtdf(a: f64, ior: f64) -> Self {
-        Self::MicroBtdf { a, ior }
-    }
 }
 
 pub fn sample_cos_hemisphere(normal: &Vec3, rand: &mut XorRand) -> Vec3 {
@@ -51,35 +43,35 @@ pub fn pdf_cos_hemisphere(dir: &Vec3, normal: &Vec3) -> f64 {
     fmax(dot(*dir, *normal).abs() / PI, 0.)
 }
 
-pub fn reflection_dir(normal: Vec3, in_dir: Vec3) -> Vec3 {
-    in_dir + normal * dot(in_dir, normal) * (-2.)
+pub fn reflection_dir(normal: &Vec3, in_dir: &Vec3) -> Vec3 {
+    *in_dir + *normal * dot(*in_dir, *normal) * (-2.)
 }
 
 pub fn refraction_dir(
     ior_from: f64,
     ior_to: f64,
-    normal: Vec3,
-    in_dir: Vec3,
+    normal: &Vec3,
+    in_dir: &Vec3,
     rand: &mut XorRand,
 ) -> (bool, Vec3, f64) {
     //return (is_refract, new_dir, reflectance)
     let reflection_dir = reflection_dir(normal, in_dir);
     let nnt = ior_to / ior_from;
-    let ddn = dot(in_dir, normal);
+    let ddn = dot(*in_dir, *normal);
     let cos2t = 1. - nnt * nnt * (1. - ddn * ddn);
 
     if cos2t < 0. {
         return (false, reflection_dir, 1.0);
     }
 
-    let refraction_dir = (-normal * (cos2t.sqrt()) + (in_dir - normal * ddn) * nnt).normalize();
+    let refraction_dir = (-*normal * (cos2t.sqrt()) + (*in_dir - *normal * ddn) * nnt).normalize();
     let a = ior_from - ior_to;
     let b = ior_from + ior_to;
     let r0 = (a * a) / (b * b);
     let c = if ior_from > ior_to {
         1. + ddn
     } else {
-        1. - dot(refraction_dir, -normal)
+        1. - dot(refraction_dir, -*normal)
     };
     let fresnel_reflectance = r0 + (1. - r0) * c.powi(5);
 
@@ -103,7 +95,7 @@ pub fn sample_ggx_vndf(normal: &Vec3, wo: &Vec3, ax: f64, ay: f64, rand: &mut Xo
     let vh = Vec3(ax * ve.0, ay * ve.1, ve.2).normalize();
     let lensq = vh.0 * vh.0 + vh.1 * vh.1;
     let t1 = if lensq > 0. {
-        Vec3(-vh.1, vh.0, 0.) * (1. / lensq.sqrt())
+        Vec3(-vh.1, vh.0, 0.) / lensq.sqrt()
     } else {
         Vec3(1., 0., 0.)
     };
@@ -121,15 +113,16 @@ pub fn sample_ggx_vndf(normal: &Vec3, wo: &Vec3, ax: f64, ay: f64, rand: &mut Xo
     (u * vn.0 + v * vn.1 + *normal * vn.2).normalize()
 }
 
-pub fn shadow_mask_fn(alpha_sq: f64, v: &Vec3, wm: &Vec3) -> f64 {
-    let cos_theta = dot(*v, *wm);
-    let tan_theta_sq = 1. / (cos_theta * cos_theta) - 1.;
+pub fn shadow_mask_fn(ax: f64, ay: f64, w: &Vec3, normal: &Vec3) -> f64 {
+    let alpha2 = ggx_alpha2(ax, ay, w, normal);
+    let cos_theta = dot(*w, *normal);
+    let tan_theta2 = 1. / (cos_theta * cos_theta) - 1.;
 
-    2. / (1. + (1. + alpha_sq * tan_theta_sq).sqrt())
+    2. / (1. + (1. + alpha2 * tan_theta2).sqrt())
 }
 
-pub fn ggx_alpha2(ax: f64, ay: f64, wo: &Vec3, normal: &Vec3) -> f64 {
-    let wo_dash = *wo - *normal * dot(*wo, *normal);
+fn ggx_alpha2(ax: f64, ay: f64, w: &Vec3, normal: &Vec3) -> f64 {
+    let wo_dash = *w - *normal * dot(*w, *normal);
     let u = cross(*normal, Vec3(0., 1., 0.)).normalize();
     let v = cross(*normal, u);
 
@@ -155,7 +148,7 @@ pub fn fresnel_ior(into: bool, ior_from: f64, ior_to: f64, wo: &Vec3, vn: &Vec3)
     r0 + (1. - r0) * c.powf(5.)
 }
 
-pub fn ggx_normal_df(alpha2: f64, ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) -> f64 {
+pub fn ggx_normal_df(ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) -> f64 {
     let cos_theta = dot(*wm, *normal);
     let tan_theta2 = 1. / (cos_theta * cos_theta) - 1.;
 
@@ -170,7 +163,7 @@ pub fn ggx_normal_df(alpha2: f64, ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) ->
         0.
     } else {
         let s = 1. + (cos_phi2 / (ax * ax) + (1. - cos_phi2) / (ay * ay)) * tan_theta2;
-        1. / (PI * alpha2 * cos_theta.powf(4.) * s * s)
+        1. / (PI * ax * ay * cos_theta.powf(4.) * s * s)
     }
 }
 

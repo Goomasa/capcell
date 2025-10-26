@@ -86,7 +86,7 @@ impl<'a> Scene<'a> {
         let idx = rand.nexti() % size;
         let obj = self.lights[idx as usize];
 
-        let (pdf, dir, _) = match obj {
+        let (pdf, dir, distance) = match obj {
             Object::Sphere { center, radius, .. } => sample_sphere(org, center, *radius, rand),
             Object::Rectangle {
                 axis, min_p, max_p, ..
@@ -97,6 +97,7 @@ impl<'a> Scene<'a> {
         };
 
         let mut record = HitRecord::new();
+        record.distance = distance + 0.1;
         let ray = Ray { org, dir };
         let _ = self.intersect_obj(&ray, &mut record, &self.bvh_tree[0]);
         if record.id != obj.get_obj_id() {
