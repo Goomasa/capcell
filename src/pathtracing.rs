@@ -1,6 +1,6 @@
 use crate::{
     material::*,
-    math::{Color, PI, Vec3, dot, fmax, fmin, multiply},
+    math::{Color, EPS, INF, PI, Vec3, dot, fmax, fmin, multiply},
     random::XorRand,
     ray::{HitRecord, Ray},
     scene::Scene,
@@ -120,14 +120,97 @@ impl Pathtracing {
         let g1_wi = shadow_mask_fn(ax, ay, &wi, &self.orienting_normal);
         self.throughput = multiply(self.throughput, fresnel * g1_wi);
         if ax == 0. || ay == 0. {
-            self.pt_sample_pdf = 1.;
+            self.pt_sample_pdf = INF;
         } else {
             self.pt_sample_pdf = vndf;
         }
     }
 
     fn trace_microbtdf(&mut self, scene: &Scene, rand: &mut XorRand, a: f64, ior: f64) {
-        ()
+        let wo = -self.now_ray.dir;
+        let wm = sample_ggx_vndf(&self.orienting_normal, &wo, a, a, rand);
+        let g1_wo = shadow_mask_fn(a, a, &wo, &self.orienting_normal);
+        let normal_dist = ggx_normal_df(a, a, &self.orienting_normal, &wm);
+
+        let ior_from;
+        let ior_to;
+        if dot(self.orienting_normal, self.record.normal) > 0. {
+            ior_from = ior;
+            ior_to = 1.;
+        } else {
+            ior_from = 1.;
+            ior_to = ior;
+        }
+
+        let (is_refract, wi, reflectance) =
+            refraction_dir(ior_from, ior_to, &wm, &self.now_ray.dir, rand);
+        let g1_wi = shadow_mask_fn(a, a, &wi, &self.orienting_normal);
+
+        let vndf;
+        if is_refract {
+            let org = self.record.hitpoint - self.orienting_normal * 0.00001;
+            self.now_ray = Ray { org, dir: wi };
+            let j = micro_btdf_j(ior_from, ior_to, &wo, &wi, &wm);
+            vndf = g1_wo * normal_dist * dot(wo, wm) * j / dot(wo, self.orienting_normal).abs();
+
+            let nee_result = scene.nee(org, rand);
+            if nee_result.pdf != 0. {
+                let nee_wm = -(wo * ior_to + nee_result.dir * ior_from).normalize();
+
+                if dot(self.orienting_normal, nee_wm) > EPS {
+                    let nee_j = micro_btdf_j(ior_from, ior_to, &wo, &nee_result.dir, &nee_wm);
+                    let nee_vndf = g1_wo * normal_dist * dot(wo, nee_wm) * nee_j
+                        / dot(wo, self.orienting_normal).abs();
+                    let mis_weight = 1. / (nee_result.pdf + nee_vndf);
+
+                    let nee_g1_wi = shadow_mask_fn(a, a, &nee_result.dir, &self.orienting_normal);
+                    let nee_fresnel = fresnel_ior(ior_from, ior_to, &wo, &nee_wm);
+                    let btdf_ = (1. - nee_fresnel)
+                        * nee_vndf
+                        * nee_g1_wi
+                        * (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
+                    self.rad = self.rad
+                        + multiply(
+                            nee_result.color,
+                            multiply(self.record.color, self.throughput),
+                        ) * btdf_
+                            * mis_weight
+                            / self.roulette_pdf;
+                }
+            }
+
+            self.throughput =
+                multiply(self.throughput, self.record.color) * g1_wi * (1. - reflectance);
+            self.roulette_pdf *= 1. - reflectance;
+        } else {
+            let org = self.record.hitpoint + self.orienting_normal * 0.00001;
+            self.now_ray = Ray { org, dir: wi };
+            vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
+
+            let nee_result = scene.nee(org, rand);
+            if nee_result.pdf != 0. {
+                let nee_wm = (nee_result.dir + wo).normalize();
+                let nee_normal_dist = ggx_normal_df(a, a, &self.orienting_normal, &nee_wm);
+                let nee_vndf =
+                    g1_wo * nee_normal_dist / (4. * dot(wo, self.orienting_normal).abs());
+                let mis_weight = 1. / (nee_result.pdf + nee_vndf);
+                let nee_fresnel = fresnel_color(&self.record.color, &nee_result.dir, &nee_wm);
+
+                let nee_g1_wi = shadow_mask_fn(a, a, &nee_result.dir, &self.orienting_normal);
+                let brdf = nee_fresnel * nee_vndf * nee_g1_wi
+                    / dot(nee_result.dir, self.orienting_normal).abs();
+                self.rad = self.rad
+                    + multiply(nee_result.color, multiply(self.throughput, brdf))
+                        * dot(nee_result.dir, self.orienting_normal)
+                        * mis_weight
+                        / self.roulette_pdf;
+            }
+
+            self.throughput = multiply(self.throughput, self.record.color) * g1_wi * reflectance;
+            self.roulette_pdf *= reflectance;
+        }
+
+        self.pt_sample_pdf = if a == 0. { INF } else { vndf };
     }
 
     pub fn integrate(&mut self, scene: &Scene, rand: &mut XorRand) -> Color {

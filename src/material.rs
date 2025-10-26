@@ -1,5 +1,5 @@
 use crate::{
-    math::{Color, EPS, PI, Vec3, cross, dot, fmax},
+    math::{Color, EPS, PI, PI_INV, Vec3, cross, dot, fmax},
     random::XorRand,
 };
 
@@ -40,7 +40,7 @@ pub fn sample_cos_hemisphere(normal: &Vec3, rand: &mut XorRand) -> Vec3 {
 }
 
 pub fn pdf_cos_hemisphere(dir: &Vec3, normal: &Vec3) -> f64 {
-    fmax(dot(*dir, *normal).abs() / PI, 0.)
+    fmax(dot(*dir, *normal).abs() * PI_INV, 0.)
 }
 
 pub fn reflection_dir(normal: &Vec3, in_dir: &Vec3) -> Vec3 {
@@ -122,8 +122,16 @@ pub fn shadow_mask_fn(ax: f64, ay: f64, w: &Vec3, normal: &Vec3) -> f64 {
 }
 
 fn ggx_alpha2(ax: f64, ay: f64, w: &Vec3, normal: &Vec3) -> f64 {
+    if ax == ay {
+        return ax * ax;
+    }
+
     let wo_dash = *w - *normal * dot(*w, *normal);
-    let u = cross(*normal, Vec3(0., 1., 0.)).normalize();
+    let u = if normal.0.abs() > EPS {
+        cross(*normal, Vec3(0., 1., 0.)).normalize()
+    } else {
+        cross(*normal, Vec3(1., 0., 0.)).normalize()
+    };
     let v = cross(*normal, u);
 
     let tan_phi = dot(wo_dash, v) / dot(wo_dash, u);
@@ -135,11 +143,11 @@ pub fn fresnel_color(f0: &Color, wi: &Vec3, vn: &Vec3) -> Color {
     *f0 + (Vec3::new(1.) - *f0) * (1. - dot(*wi, *vn)).clamp(0., 1.).powf(5.)
 }
 
-pub fn fresnel_ior(into: bool, ior_from: f64, ior_to: f64, wo: &Vec3, vn: &Vec3) -> f64 {
+pub fn fresnel_ior(ior_from: f64, ior_to: f64, wo: &Vec3, vn: &Vec3) -> f64 {
     let a = ior_from - ior_to;
     let b = ior_from + ior_to;
     let r0 = (a * a) / (b * b);
-    let c = if into {
+    let c = if ior_from > ior_to {
         1. + dot(*wo, -*vn)
     } else {
         1. - dot(*wo, -*vn)
@@ -153,7 +161,11 @@ pub fn ggx_normal_df(ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) -> f64 {
     let tan_theta2 = 1. / (cos_theta * cos_theta) - 1.;
 
     let vn_dash = *wm - *normal * cos_theta;
-    let u = cross(*normal, Vec3(0., 1., 0.)).normalize();
+    let u = if normal.0.abs() > EPS {
+        cross(*normal, Vec3(0., 1., 0.)).normalize()
+    } else {
+        cross(*normal, Vec3(1., 0., 0.)).normalize()
+    };
     let v = cross(*normal, u);
 
     let tan_phi = dot(vn_dash, v) / dot(vn_dash, u);
@@ -163,11 +175,11 @@ pub fn ggx_normal_df(ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) -> f64 {
         0.
     } else {
         let s = 1. + (cos_phi2 / (ax * ax) + (1. - cos_phi2) / (ay * ay)) * tan_theta2;
-        1. / (PI * ax * ay * cos_theta.powf(4.) * s * s)
+        PI_INV / (ax * ay * cos_theta.powf(4.) * s * s)
     }
 }
 
-pub fn micro_btdf_j(ior_from: f64, ior_to: f64, wo: &Vec3, wi: &Vec3, wh: &Vec3) -> f64 {
-    let dot_wo_wh = dot(*wo, *wh);
-    ior_to * ior_to * dot_wo_wh.abs() / (ior_from * dot(*wi, *wh) + ior_to * dot_wo_wh).powf(2.)
+pub fn micro_btdf_j(ior_from: f64, ior_to: f64, wo: &Vec3, wi: &Vec3, wm: &Vec3) -> f64 {
+    let dot_wo_wm = dot(*wo, *wm);
+    ior_to * ior_to * dot_wo_wm.abs() / (ior_from * dot(*wi, *wm) + ior_to * dot_wo_wm).powf(2.)
 }

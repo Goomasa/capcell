@@ -76,8 +76,8 @@ pub fn cornel_box() {
     let sphere = Object::set_sphere(
         Vec3(15., 7., -13.),
         7.,
-        Bxdf::MicroBrdf { ax: 0.2, ay: 0.5 },
-        Vec3::new(0.99),
+        Bxdf::MicroBrdf { ax: 0.1, ay: 0.5 },
+        Vec3::new(1.),
         obj_id,
     );
 
