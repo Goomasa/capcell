@@ -1,6 +1,11 @@
 use crate::{
-    material::*,
-    math::{Color, EPS, INF, PI, Vec3, dot, fmax, fmin, multiply},
+    Bxdf,
+    material::{
+        composite::{comp_specular_brdf, sample_brdf},
+        diffuse::*,
+        microfacet::*,
+    },
+    math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin, multiply},
     random::XorRand,
     ray::{HitRecord, Ray},
     scene::Scene,
@@ -8,7 +13,6 @@ use crate::{
 
 const DEPTH: u32 = 6;
 const MAX_DEPTH: u32 = 30;
-const PI_INV: f64 = 1. / PI;
 
 pub struct Pathtracing {
     record: HitRecord,
@@ -75,7 +79,6 @@ impl Pathtracing {
 
         self.throughput = multiply(self.throughput, self.record.color);
         let nee_result = scene.nee(org, rand);
-
         if nee_result.pdf != 0. {
             let nee_dir_cos = fmax(dot(self.orienting_normal, nee_result.dir), 0.);
             let mis_weight = 1. / (nee_result.pdf + nee_dir_cos * PI_INV);
@@ -96,10 +99,10 @@ impl Pathtracing {
         let org = self.record.hitpoint + self.orienting_normal * 0.00001;
         self.now_ray = Ray { org, dir: wi };
 
-        let nee_result = scene.nee(org, rand);
         let normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &wm);
         let vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
 
+        let nee_result = scene.nee(org, rand);
         if nee_result.pdf != 0. {
             let nee_wm = (nee_result.dir + wo).normalize();
             let nee_normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &nee_wm);
@@ -165,10 +168,8 @@ impl Pathtracing {
 
                     let nee_g1_wi = shadow_mask_fn(a, a, &nee_result.dir, &self.orienting_normal);
                     let nee_fresnel = fresnel_ior(ior_from, ior_to, &wo, &nee_wm);
-                    let btdf_ = (1. - nee_fresnel)
-                        * nee_vndf
-                        * nee_g1_wi
-                        * (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
+                    let btdf_ = (1. - nee_fresnel) * nee_vndf * nee_g1_wi;
+                    //* (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
                     self.rad = self.rad
                         + multiply(
                             nee_result.color,
@@ -213,6 +214,84 @@ impl Pathtracing {
         self.pt_sample_pdf = if a == 0. { INF } else { vndf };
     }
 
+    pub fn trace_composite(
+        &mut self,
+        basecolor: &Color,
+        metalic: f64,
+        highlight: &Color,
+        roughness: f64,
+        scene: &Scene,
+        rand: &mut XorRand,
+    ) {
+        let (is_diffuse, prob) = sample_brdf(metalic, rand);
+        let org = self.record.hitpoint + self.orienting_normal * 0.00001;
+        let wo = -self.now_ray.dir;
+
+        let a = roughness * roughness;
+        let wm;
+        let wi;
+        if is_diffuse {
+            wi = sample_cos_hemisphere(&self.orienting_normal, rand);
+            wm = (wi + wo).normalize();
+        } else {
+            wm = sample_ggx_vndf(&self.orienting_normal, &wo, a, a, rand);
+            wi = reflection_dir(&wm, &self.now_ray.dir);
+        }
+        self.now_ray = Ray { org, dir: wi };
+
+        let nee_result = scene.nee(org, rand);
+        if nee_result.pdf != 0. {
+            let nee_pdf_diffuse = pdf_cos_hemisphere(&nee_result.dir, &self.orienting_normal);
+            let nee_wm = (wo + nee_result.dir).normalize();
+            if is_diffuse {
+                let pdf_pt = nee_pdf_diffuse;
+                let mis_weight = prob / (pdf_pt + nee_result.pdf);
+                self.rad = self.rad
+                    + multiply(
+                        nee_result.color,
+                        multiply(self.throughput, *basecolor * PI_INV),
+                    ) * dot(nee_result.dir, self.orienting_normal)
+                        * mis_weight
+                        / self.roulette_pdf;
+            } else {
+                let (nee_pdf_specular, nee_brdf) = comp_specular_brdf(
+                    a,
+                    highlight,
+                    &wo,
+                    &nee_result.dir,
+                    &nee_wm,
+                    &self.orienting_normal,
+                );
+                let pdf_pt = nee_pdf_specular;
+                let mis_weight = 1. / (pdf_pt + nee_result.pdf);
+                self.rad = self.rad
+                    + multiply(nee_result.color, multiply(self.throughput, nee_brdf))
+                        * dot(nee_result.dir, self.orienting_normal)
+                        * mis_weight
+                        / self.roulette_pdf;
+            }
+        }
+
+        let (pdf_diiffuse, brdf_diffuse) = (
+            pdf_cos_hemisphere(&wi, &self.orienting_normal),
+            *basecolor * PI_INV,
+        );
+        let (pdf_specular, brdf_specular) =
+            comp_specular_brdf(a, highlight, &wo, &wi, &wm, &self.orienting_normal);
+        let brdf = (1. - metalic) * brdf_diffuse + brdf_specular;
+        self.pt_sample_pdf = prob * pdf_diiffuse + (1. - prob) * pdf_specular;
+
+        if is_diffuse {
+            self.throughput =
+                multiply(self.throughput, brdf) * dot(wi, self.orienting_normal) * prob
+                    / self.pt_sample_pdf;
+        } else {
+            self.throughput =
+                multiply(self.throughput, brdf) * dot(wi, self.orienting_normal) * (1. - prob)
+                    / self.pt_sample_pdf;
+        }
+    }
+
     pub fn integrate(&mut self, scene: &Scene, rand: &mut XorRand) -> Color {
         for time in 0.. {
             if !self.ray_intersect(scene) {
@@ -244,6 +323,14 @@ impl Pathtracing {
                 }
                 Bxdf::MicroBtdf { a, ior } => {
                     self.trace_microbtdf(scene, rand, a, ior);
+                }
+                Bxdf::CompositeBrdf {
+                    basecolor,
+                    metalic,
+                    highlight,
+                    roughness,
+                } => {
+                    self.trace_composite(&basecolor, metalic, &highlight, roughness, scene, rand);
                 }
             }
         }

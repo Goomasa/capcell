@@ -1,7 +1,7 @@
 use crate::aabb::AABB;
 use crate::random::{FreshId, XorRand};
 use crate::ray::*;
-use crate::{material::Bxdf, math::*};
+use crate::{material::bxdf::Bxdf, math::*};
 
 #[derive(Clone, Copy)]
 pub enum Axis {

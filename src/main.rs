@@ -1,6 +1,6 @@
 use crate::{
     camera::LensModel,
-    material::Bxdf,
+    material::bxdf::Bxdf,
     math::Vec3,
     object::{Axis, Object},
     random::FreshId,
@@ -74,9 +74,14 @@ pub fn cornel_box() {
     );
 
     let sphere = Object::set_sphere(
-        Vec3(15., 7., -13.),
-        7.,
-        Bxdf::MicroBrdf { ax: 0.1, ay: 0.5 },
+        Vec3(0., 7.5, -25.),
+        7.5,
+        Bxdf::CompositeBrdf {
+            basecolor: Vec3::new(1.),
+            metalic: 0.2,
+            highlight: Vec3::new(1.),
+            roughness: 0.2,
+        },
         Vec3::new(1.),
         obj_id,
     );

@@ -1,5 +1,5 @@
 use crate::{
-    material::Bxdf,
+    Bxdf,
     math::{Color, INF, Point3, Vec3},
 };
 
