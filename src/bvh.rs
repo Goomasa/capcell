@@ -3,7 +3,7 @@ use crate::{
     object::{Axis, Object},
 };
 
-const T_TRI: f64 = 1.2;
+const T_OBJ: f64 = 1.2;
 const T_AABB: f64 = 1.0;
 
 pub struct BvhNode {
@@ -66,7 +66,7 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
         let root_area_inv = 1. / tree[idx].bbox.get_area();
         let mut best_idx = -1;
         let mut best_axis = Axis::X;
-        let mut best_cost = T_TRI * size as f64;
+        let mut best_cost = T_OBJ * size as f64;
 
         for axis in [Axis::X, Axis::Y, Axis::Z] {
             sort_objects(&axis, &mut objects);
@@ -83,7 +83,7 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
                 let s2_area = box2.get_area();
                 let cost = 2. * T_AABB
                     + (s1_area[i - 1] * i as f64 + s2_area * (size - i) as f64)
-                        * T_TRI
+                        * T_OBJ
                         * root_area_inv;
                 if cost < best_cost {
                     best_idx = i as i32;

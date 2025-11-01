@@ -1,4 +1,4 @@
-use crate::math::Color;
+use crate::math::{Color, Vec3, fmax};
 
 #[allow(unused)]
 #[derive(Clone, Copy)]
@@ -29,4 +29,18 @@ impl Bxdf {
             _ => false,
         }
     }
+
+    pub fn set_comp(basecolor: Color, metalic: f64, specular: f64, roughness: f64) -> Self {
+        let highlight = lerp(0.08 * specular, &basecolor, &Vec3::new(metalic));
+        Bxdf::CompositeBrdf {
+            basecolor,
+            metalic,
+            highlight,
+            roughness: fmax(roughness, 0.01),
+        }
+    }
+}
+
+fn lerp(k: f64, v: &Color, w: &Color) -> Color {
+    *v * (1. - k) + *w * k
 }
