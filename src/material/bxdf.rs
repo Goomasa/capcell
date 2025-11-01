@@ -5,6 +5,10 @@ use crate::math::{Color, Vec3, fmax};
 pub enum Bxdf {
     Lambertian,
     Light,
+    IdealMirror,
+    IdealGlass {
+        ior: f64,
+    },
     MicroBrdf {
         ax: f64,
         ay: f64,

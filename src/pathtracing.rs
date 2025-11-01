@@ -89,6 +89,50 @@ impl Pathtracing {
         self.pt_sample_pdf = pdf_cos_hemisphere(&dir, &self.orienting_normal);
     }
 
+    fn trace_mirror(&mut self) {
+        let dir = reflection_dir(&self.orienting_normal, &self.now_ray.dir);
+        let org = self.record.hitpoint + self.orienting_normal * 0.00001;
+        self.now_ray = Ray { org, dir };
+
+        let fresnel = fresnel_color(&self.record.color, &dir, &self.orienting_normal);
+        self.throughput = multiply(self.throughput, fresnel);
+        self.pt_sample_pdf = INF;
+    }
+
+    fn trace_glass(&mut self, ior: f64, rand: &mut XorRand) {
+        let ior_from;
+        let ior_to;
+        if dot(self.orienting_normal, self.record.normal) > 0. {
+            ior_from = ior;
+            ior_to = 1.;
+        } else {
+            ior_from = 1.;
+            ior_to = ior;
+        }
+
+        let (is_refract, wi, reflectance) = refraction_dir(
+            ior_from,
+            ior_to,
+            &self.orienting_normal,
+            &self.now_ray.dir,
+            rand,
+        );
+
+        if is_refract {
+            let org = self.record.hitpoint - 0.00001 * self.orienting_normal;
+            self.now_ray = Ray { org, dir: wi };
+            self.throughput = multiply(self.throughput, self.record.color) * (1. - reflectance);
+            self.roulette_pdf *= 1. - reflectance;
+        } else {
+            let org = self.record.hitpoint + 0.00001 * self.orienting_normal;
+            self.now_ray = Ray { org, dir: wi };
+            self.throughput = multiply(self.throughput, self.record.color) * reflectance;
+            self.roulette_pdf *= reflectance;
+        }
+
+        self.pt_sample_pdf = INF;
+    }
+
     fn trace_microbrdf(&mut self, scene: &Scene, rand: &mut XorRand, ax: f64, ay: f64) {
         let wo = -self.now_ray.dir;
         let wm = sample_ggx_vndf(&self.orienting_normal, &wo, ax, ay, rand);
@@ -154,7 +198,8 @@ impl Pathtracing {
             let org = self.record.hitpoint - self.orienting_normal * 0.00001;
             self.now_ray = Ray { org, dir: wi };
             let j = micro_btdf_j(ior_from, ior_to, &wo, &wi, &wm);
-            vndf = g1_wo * normal_dist * dot(wo, wm) * j / dot(wo, self.orienting_normal).abs();
+            vndf =
+                g1_wo * normal_dist * dot(wo, wm).abs() * j / dot(wo, self.orienting_normal).abs();
 
             let nee_result = scene.nee(org, rand);
             if nee_result.pdf != 0. {
@@ -162,14 +207,17 @@ impl Pathtracing {
 
                 if dot(self.orienting_normal, nee_wm) > EPS {
                     let nee_j = micro_btdf_j(ior_from, ior_to, &wo, &nee_result.dir, &nee_wm);
-                    let nee_vndf = g1_wo * normal_dist * dot(wo, nee_wm) * nee_j
+                    let nee_normal_dist = ggx_normal_df(a, a, &self.orienting_normal, &nee_wm);
+                    let nee_vndf = g1_wo * nee_normal_dist * dot(wo, nee_wm).abs() * nee_j
                         / dot(wo, self.orienting_normal).abs();
                     let mis_weight = 1. / (nee_result.pdf + nee_vndf);
 
                     let nee_g1_wi = shadow_mask_fn(a, a, &nee_result.dir, &self.orienting_normal);
                     let nee_fresnel = fresnel_ior(ior_from, ior_to, &wo, &nee_wm);
-                    let btdf_ = (1. - nee_fresnel) * nee_vndf * nee_g1_wi;
-                    //* (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
+                    let btdf_ = (1. - nee_fresnel)
+                        * nee_vndf
+                        * nee_g1_wi
+                        * (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
                     self.rad = self.rad
                         + multiply(
                             nee_result.color,
@@ -317,6 +365,12 @@ impl Pathtracing {
                 }
                 Bxdf::Lambertian => {
                     self.trace_lambertian(scene, rand);
+                }
+                Bxdf::IdealMirror => {
+                    self.trace_mirror();
+                }
+                Bxdf::IdealGlass { ior } => {
+                    self.trace_glass(ior, rand);
                 }
                 Bxdf::MicroBrdf { ax, ay } => {
                     self.trace_microbrdf(scene, rand, ax, ay);

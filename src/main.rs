@@ -127,6 +127,7 @@ fn spheres() {
         obj_id,
     );
 
+    let basecolor = Vec3(1., 0.1, 0.1);
     let specular = 0.7;
     let metalic = 0.5;
     let roughness = 0.1;
@@ -134,31 +135,31 @@ fn spheres() {
     let s1 = Object::set_sphere(
         Vec3(-20., 15., -20.),
         5.,
-        Bxdf::set_comp(Vec3(1., 0.1, 0.1), metalic, specular, roughness),
-        Vec3(1., 0.1, 0.1),
+        Bxdf::set_comp(basecolor, metalic, specular, roughness),
+        Vec3::new(1.),
         obj_id,
     );
 
     let s2 = Object::set_sphere(
         Vec3(-7., 15., -20.),
         5.,
-        Bxdf::set_comp(Vec3(1., 0.1, 0.1), metalic, specular, roughness + 0.2),
-        Vec3(1., 0.1, 0.1),
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.2),
+        Vec3::new(1.),
         obj_id,
     );
 
     let s3 = Object::set_sphere(
         Vec3(7., 15., -20.),
         5.,
-        Bxdf::set_comp(Vec3(1., 0.1, 0.1), metalic, specular, roughness + 0.4),
-        Vec3(1., 0.1, 0.1),
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.4),
+        Vec3::new(1.),
         obj_id,
     );
 
     let s4 = Object::set_sphere(
         Vec3(20., 15., -20.),
         5.,
-        Bxdf::set_comp(Vec3(1., 0.1, 0.1), metalic, specular, roughness + 0.6),
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.6),
         Vec3::new(1.),
         obj_id,
     );

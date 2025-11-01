@@ -141,5 +141,5 @@ pub fn ggx_normal_df(ax: f64, ay: f64, normal: &Vec3, wm: &Vec3) -> f64 {
 
 pub fn micro_btdf_j(ior_from: f64, ior_to: f64, wo: &Vec3, wi: &Vec3, wm: &Vec3) -> f64 {
     let dot_wo_wm = dot(*wo, *wm);
-    ior_to * ior_to * dot_wo_wm.abs() / (ior_from * dot(*wi, *wm) + ior_to * dot_wo_wm).powf(2.)
+    ior_to * ior_to * dot_wo_wm.abs() / (ior_from * dot(*wi, *wm) + ior_to * dot_wo_wm).powi(2)
 }
