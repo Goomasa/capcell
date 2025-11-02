@@ -3,6 +3,7 @@ use crate::math::{Color, Vec3, fmax};
 #[allow(unused)]
 #[derive(Clone, Copy)]
 pub enum Bxdf {
+    NoSurface,
     Lambertian,
     Light,
     IdealMirror,

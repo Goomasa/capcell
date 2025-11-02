@@ -20,6 +20,9 @@ mod ray;
 mod render;
 mod scene;
 
+const IOR_GLASS: f64 = 1.5;
+
+#[allow(unused)]
 pub fn cornel_box() {
     let obj_id = &mut FreshId::new();
 
@@ -107,8 +110,10 @@ pub fn cornel_box() {
     let _ = render(&camera, &scene);
 }
 
+#[allow(unused)]
 fn spheres() {
     let obj_id = &mut FreshId::new();
+
     let floor = Object::set_rect(
         Axis::Y,
         Vec3(-25., 10., -10.),
@@ -127,15 +132,17 @@ fn spheres() {
         obj_id,
     );
 
+    /*
     let basecolor = Vec3(1., 0.1, 0.1);
     let specular = 0.7;
     let metalic = 0.5;
     let roughness = 0.1;
+    */
 
     let s1 = Object::set_sphere(
         Vec3(-20., 15., -20.),
         5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness),
+        Bxdf::MicroBtdf { a: 0.1, ior: 1.5 },
         Vec3::new(1.),
         obj_id,
     );
@@ -143,7 +150,10 @@ fn spheres() {
     let s2 = Object::set_sphere(
         Vec3(-7., 15., -20.),
         5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.2),
+        Bxdf::MicroBtdf {
+            a: 0.3,
+            ior: IOR_GLASS,
+        },
         Vec3::new(1.),
         obj_id,
     );
@@ -151,7 +161,10 @@ fn spheres() {
     let s3 = Object::set_sphere(
         Vec3(7., 15., -20.),
         5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.4),
+        Bxdf::MicroBtdf {
+            a: 0.5,
+            ior: IOR_GLASS,
+        },
         Vec3::new(1.),
         obj_id,
     );
@@ -159,7 +172,10 @@ fn spheres() {
     let s4 = Object::set_sphere(
         Vec3(20., 15., -20.),
         5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.6),
+        Bxdf::MicroBtdf {
+            a: 0.7,
+            ior: IOR_GLASS,
+        },
         Vec3::new(1.),
         obj_id,
     );
@@ -173,8 +189,8 @@ fn spheres() {
         40.,
         Vec3(0., 0., -1.).normalize(),
         30.,
-        4,
-        4,
+        6,
+        6,
     );
 
     let scene = Scene::new(objects, Vec3::zero());

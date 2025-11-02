@@ -1,4 +1,5 @@
 use crate::aabb::AABB;
+use crate::material::medium::Medium;
 use crate::random::{FreshId, XorRand};
 use crate::ray::*;
 use crate::{material::bxdf::Bxdf, math::*};
@@ -19,6 +20,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
+        medium: Option<Medium>,
     },
 
     Rectangle {
@@ -29,6 +31,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
+        medium: Option<Medium>,
     },
 
     Triangle {
@@ -40,6 +43,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
+        medium: Option<Medium>,
     },
 }
 
@@ -62,6 +66,7 @@ impl Object {
                 min_p: center - Vec3::new(radius),
                 max_p: center + Vec3::new(radius),
             },
+            medium: None,
         }
     }
 
@@ -84,6 +89,7 @@ impl Object {
             color,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
+            medium: None,
         }
     }
 
@@ -115,6 +121,7 @@ impl Object {
             color,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
+            medium: None,
         }
     }
 
@@ -190,6 +197,18 @@ impl Object {
         }
     }
 
+    pub fn pdf_sample_surface(&self, org: &Point3, rand: &mut XorRand) -> (f64, Vec3, f64) {
+        match self {
+            Object::Sphere { center, radius, .. } => sample_sphere(*org, center, *radius, rand),
+            Object::Rectangle {
+                axis, min_p, max_p, ..
+            } => sample_rect(*org, axis, max_p, min_p, rand),
+            Object::Triangle {
+                p, pq, pr, normal, ..
+            } => sample_triangle(*org, p, pq, pr, normal, self.get_area(), rand),
+        }
+    }
+
     pub fn get_bxdf(&self) -> &Bxdf {
         match self {
             Object::Sphere { bxdf, .. }
@@ -231,6 +250,14 @@ impl Object {
     pub fn get_center(&self) -> Point3 {
         let bbox = self.get_bbox();
         (bbox.min_p + bbox.max_p) / 2.
+    }
+
+    pub fn get_medium(&self) -> &Option<Medium> {
+        match self {
+            Object::Sphere { medium, .. }
+            | Object::Rectangle { medium, .. }
+            | Object::Triangle { medium, .. } => medium,
+        }
     }
 }
 
@@ -467,18 +494,18 @@ pub fn sample_triangle(
     (l_sq / (cos_theta * area), dir, l_sq.sqrt())
 }
 
-pub fn sample_sphere_pdf(org: &Point3, center: &Point3, radius: f64) -> f64 {
+pub fn pdf_sample_sphere(org: &Point3, center: &Point3, radius: f64) -> f64 {
     let cos_mu = (1. - (radius * radius / (*center - *org).length_sq())).sqrt();
     1. / (2. * PI * (1. - cos_mu))
 }
 
-pub fn sample_rect_pdf(org: &Point3, pos: &Point3, obj: &Object, normal: Vec3) -> f64 {
+pub fn pdf_sample_rect(org: &Point3, pos: &Point3, obj: &Object, normal: Vec3) -> f64 {
     let l_sq = (*pos - *org).length_sq();
     let cos_theta = dot((*pos - *org).normalize(), normal).abs();
     l_sq / (obj.get_area() * cos_theta)
 }
 
-pub fn sample_tri_pdf(org: &Point3, pos: &Point3, obj: &Object, normal: Vec3) -> f64 {
+pub fn pdf_sample_tri(org: &Point3, pos: &Point3, obj: &Object, normal: Vec3) -> f64 {
     let l_sq = (*pos - *org).length_sq();
     let cos_theta = dot((*pos - *org).normalize(), normal).abs();
     l_sq / (obj.get_area() * cos_theta)
