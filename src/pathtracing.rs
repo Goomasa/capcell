@@ -3,6 +3,7 @@ use crate::{
     material::{
         composite::{comp_specular_brdf, sample_brdf},
         diffuse::*,
+        medium::{Medium, pdf_phase, sample_phase},
         microfacet::*,
     },
     math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin, multiply},
@@ -22,7 +23,7 @@ pub struct Pathtracing {
     throughput: Vec3,
     rad: Color,
     pt_sample_pdf: f64,
-    ior_stack: Vec<f64>,
+    medium_stack: Vec<(f64, f64, f64)>, // (ior, scattering_coeff, extinction_coeff)
 }
 
 impl Pathtracing {
@@ -35,31 +36,37 @@ impl Pathtracing {
             throughput: Vec3::new(1.),
             rad: Vec3::new(0.),
             pt_sample_pdf: -1.,
-            ior_stack: vec![1.],
+            medium_stack: vec![(1., -1., -1.)],
         }
     }
 
-    fn get_ior(&self, ior: f64, into: bool) -> (f64, f64) {
+    fn update_medium_stack(&mut self, into: bool, ior: f64, medium: &Medium) {
         if into {
-            (ior, *self.ior_stack.last().unwrap())
+            self.medium_stack
+                .push((ior, medium.coeff_sc, medium.coeff_ex));
         } else {
-            let size = self.ior_stack.len();
-            if size <= 1 {
-                (1., ior)
-            } else {
-                (self.ior_stack[size - 2], ior)
+            self.medium_stack.pop();
+            if self.medium_stack.is_empty() {
+                // error
+                self.medium_stack.push((1., -1., -1.));
             }
         }
     }
 
-    fn update_stack(&mut self, ior: f64, into: bool) {
+    fn get_coeff_ex(&self) -> f64 {
+        self.medium_stack.last().unwrap().2
+    }
+
+    fn get_ior(&self, ior: f64, into: bool) -> (f64, f64) {
+        // return (ior_from, ior_to)
         if into {
-            self.ior_stack.push(ior);
+            (ior, self.medium_stack.last().unwrap().0)
         } else {
-            let _ = self.ior_stack.pop();
-            if self.ior_stack.is_empty() {
-                // error
-                self.ior_stack.push(1.);
+            let size = self.medium_stack.len();
+            if size <= 1 {
+                (1., ior)
+            } else {
+                (self.medium_stack[size - 2].0, ior)
             }
         }
     }
@@ -105,12 +112,16 @@ impl Pathtracing {
         self.now_ray = Ray { org, dir };
 
         self.throughput = multiply(self.throughput, self.record.color);
-        let nee_result = scene.nee(&org, rand);
+        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_dir_cos = fmax(dot(self.orienting_normal, nee_result.dir), 0.);
             let mis_weight = 1. / (nee_result.pdf + nee_dir_cos * PI_INV);
             self.rad = self.rad
-                + multiply(self.throughput, nee_result.color) * PI_INV * nee_dir_cos * mis_weight
+                + multiply(self.throughput, nee_result.color)
+                    * PI_INV
+                    * nee_dir_cos
+                    * mis_weight
+                    * nee_result.transmittance
                     / self.roulette_pdf;
         }
         self.pt_sample_pdf = pdf_cos_hemisphere(&dir, &self.orienting_normal);
@@ -126,7 +137,7 @@ impl Pathtracing {
         self.pt_sample_pdf = INF;
     }
 
-    fn trace_glass(&mut self, ior: f64, rand: &mut XorRand) {
+    fn trace_glass(&mut self, ior: f64, medium: Medium, rand: &mut XorRand) {
         let into = dot(self.orienting_normal, self.record.normal) > 0.;
         let (ior_from, ior_to) = self.get_ior(ior, into);
         //let (ior_from, ior_to) = if into { (ior, 1.) } else { (1., ior) };
@@ -140,7 +151,7 @@ impl Pathtracing {
         );
 
         if is_refract {
-            //self.update_stack(ior, into);
+            self.update_medium_stack(into, ior, &medium);
             let org = self.record.hitpoint - 0.00001 * self.orienting_normal;
             self.now_ray = Ray { org, dir: wi };
             self.throughput = multiply(self.throughput, self.record.color) * (1. - reflectance);
@@ -168,7 +179,7 @@ impl Pathtracing {
         let normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &wm);
         let vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
 
-        let nee_result = scene.nee(&org, rand);
+        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_wm = (nee_result.dir + wo).normalize();
             let nee_normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &nee_wm);
@@ -183,6 +194,7 @@ impl Pathtracing {
                 + multiply(nee_result.color, multiply(self.throughput, brdf))
                     * dot(nee_result.dir, self.orienting_normal)
                     * mis_weight
+                    * nee_result.transmittance
                     / self.roulette_pdf;
         }
 
@@ -195,7 +207,14 @@ impl Pathtracing {
         }
     }
 
-    fn trace_microbtdf(&mut self, scene: &Scene, rand: &mut XorRand, a: f64, ior: f64) {
+    fn trace_microbtdf(
+        &mut self,
+        scene: &Scene,
+        rand: &mut XorRand,
+        a: f64,
+        ior: f64,
+        medium: Medium,
+    ) {
         let wo = -self.now_ray.dir;
         let wm = sample_ggx_vndf(&self.orienting_normal, &wo, a, a, rand);
         let g1_wo = shadow_mask_fn(a, a, &wo, &self.orienting_normal);
@@ -210,14 +229,14 @@ impl Pathtracing {
 
         let vndf;
         if is_refract {
-            self.update_stack(ior, into);
+            self.update_medium_stack(into, ior, &medium);
             let org = self.record.hitpoint - self.orienting_normal * 0.00001;
             self.now_ray = Ray { org, dir: wi };
             let j = micro_btdf_j(ior_from, ior_to, &wo, &wi, &wm);
             vndf =
                 g1_wo * normal_dist * dot(wo, wm).abs() * j / dot(wo, self.orienting_normal).abs();
 
-            let nee_result = scene.nee(&org, rand);
+            let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
             if nee_result.pdf != 0. {
                 let nee_wm = -(wo * ior_to + nee_result.dir * ior_from).normalize();
 
@@ -240,6 +259,7 @@ impl Pathtracing {
                             multiply(self.record.color, self.throughput),
                         ) * btdf_
                             * mis_weight
+                            * nee_result.transmittance
                             / self.roulette_pdf;
                 }
             }
@@ -252,7 +272,7 @@ impl Pathtracing {
             self.now_ray = Ray { org, dir: wi };
             vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
 
-            let nee_result = scene.nee(&org, rand);
+            let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
             if nee_result.pdf != 0. {
                 let nee_wm = (nee_result.dir + wo).normalize();
                 let nee_normal_dist = ggx_normal_df(a, a, &self.orienting_normal, &nee_wm);
@@ -268,6 +288,7 @@ impl Pathtracing {
                     + multiply(nee_result.color, multiply(self.throughput, brdf))
                         * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
+                        * nee_result.transmittance
                         / self.roulette_pdf;
             }
 
@@ -303,7 +324,7 @@ impl Pathtracing {
         }
         self.now_ray = Ray { org, dir: wi };
 
-        let nee_result = scene.nee(&org, rand);
+        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_pdf_diffuse = pdf_cos_hemisphere(&nee_result.dir, &self.orienting_normal);
             let nee_wm = (wo + nee_result.dir).normalize();
@@ -316,6 +337,7 @@ impl Pathtracing {
                         multiply(self.throughput, *basecolor * PI_INV),
                     ) * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
+                        * nee_result.transmittance
                         / self.roulette_pdf;
             } else {
                 let (nee_pdf_specular, nee_brdf) = comp_specular_brdf(
@@ -332,6 +354,7 @@ impl Pathtracing {
                     + multiply(nee_result.color, multiply(self.throughput, nee_brdf))
                         * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
+                        * nee_result.transmittance
                         / self.roulette_pdf;
             }
         }
@@ -356,17 +379,53 @@ impl Pathtracing {
         }
     }
 
-    pub fn integrate(&mut self, scene: &Scene, rand: &mut XorRand) -> Color {
-        for time in 0.. {
-            if !self.ray_intersect(scene) {
-                break;
+    pub fn freepath_sample(&mut self, scene: &Scene, rand: &mut XorRand) -> bool {
+        let (_, coeff_sc, coeff_ex) = self.medium_stack.last().unwrap();
+        let dist = -1. * (rand.next01()).ln() / coeff_ex;
+
+        self.record = HitRecord::init_with_distance(dist);
+        if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
+            self.throughput = self.throughput * (*coeff_sc / *coeff_ex);
+            let org = self.now_ray.org + self.now_ray.dir * dist;
+            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, rand);
+
+            let nee_result = scene.nee(&org, *coeff_ex, rand);
+            if nee_result.pdf != 0. {
+                let nee_hg_pdf = pdf_phase(&nee_result.dir, &self.now_ray.dir);
+                let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
+                self.rad = self.rad
+                    + multiply(self.throughput, nee_result.color)
+                        * nee_hg_pdf
+                        * nee_result.transmittance
+                        * mis_weight
+                        / self.roulette_pdf;
             }
 
+            self.pt_sample_pdf = hg_pdf;
+            self.now_ray = Ray { org, dir };
+            return false;
+        }
+        true
+    }
+
+    pub fn integrate(&mut self, scene: &Scene, rand: &mut XorRand) -> Color {
+        for time in 0.. {
             let roulette_prob = self.roulette_prob(time);
             if rand.next01() > roulette_prob {
                 break;
             }
             self.roulette_pdf *= roulette_prob;
+
+            if self.get_coeff_ex() > 0. {
+                // in medium
+                if !self.freepath_sample(scene, rand) {
+                    continue;
+                }
+            } else {
+                if !self.ray_intersect(scene) {
+                    break;
+                }
+            }
 
             self.orienting_normal = if dot(self.record.normal, self.now_ray.dir) < 0. {
                 self.record.normal
@@ -374,12 +433,18 @@ impl Pathtracing {
                 -self.record.normal
             };
 
+            let medium = self.record.medium;
+
             match self.record.bxdf {
                 Bxdf::NoSurface => {
+                    let into = dot(self.orienting_normal, self.record.normal) > 0.;
+                    self.update_medium_stack(into, 1., &medium);
                     self.now_ray.org = self.record.hitpoint - 0.00001 * self.orienting_normal;
                 }
                 Bxdf::Light => {
-                    self.trace_light(scene);
+                    if dot(self.record.normal, self.now_ray.dir) < 0. {
+                        self.trace_light(scene);
+                    }
                     break;
                 }
                 Bxdf::Lambertian => {
@@ -389,13 +454,13 @@ impl Pathtracing {
                     self.trace_mirror();
                 }
                 Bxdf::IdealGlass { ior } => {
-                    self.trace_glass(ior, rand);
+                    self.trace_glass(ior, medium, rand);
                 }
                 Bxdf::MicroBrdf { ax, ay } => {
                     self.trace_microbrdf(scene, rand, ax, ay);
                 }
                 Bxdf::MicroBtdf { a, ior } => {
-                    self.trace_microbtdf(scene, rand, a, ior);
+                    self.trace_microbtdf(scene, rand, a, ior, medium);
                 }
                 Bxdf::CompositeBrdf {
                     basecolor,

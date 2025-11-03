@@ -35,9 +35,9 @@ impl BvhNode {
 
 fn sort_objects(axis: &Axis, objs: &mut Vec<&Object>) {
     match axis {
-        Axis::X => objs.sort_by(|o1, o2| o1.get_center().0.total_cmp(&o2.get_center().0)),
-        Axis::Y => objs.sort_by(|o1, o2| o1.get_center().1.total_cmp(&o2.get_center().1)),
-        Axis::Z => objs.sort_by(|o1, o2| o1.get_center().2.total_cmp(&o2.get_center().2)),
+        Axis::X(_) => objs.sort_by(|o1, o2| o1.get_center().0.total_cmp(&o2.get_center().0)),
+        Axis::Y(_) => objs.sort_by(|o1, o2| o1.get_center().1.total_cmp(&o2.get_center().1)),
+        Axis::Z(_) => objs.sort_by(|o1, o2| o1.get_center().2.total_cmp(&o2.get_center().2)),
     }
 }
 
@@ -65,10 +65,10 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
         let mut s1_area = vec![0.; size - 1];
         let root_area_inv = 1. / tree[idx].bbox.get_area();
         let mut best_idx = -1;
-        let mut best_axis = Axis::X;
+        let mut best_axis = Axis::X(true);
         let mut best_cost = T_OBJ * size as f64;
 
-        for axis in [Axis::X, Axis::Y, Axis::Z] {
+        for axis in [Axis::X(true), Axis::Y(true), Axis::Z(true)] {
             sort_objects(&axis, &mut objects);
             let mut box1 = AABB::empty();
             let mut box2 = AABB::empty();

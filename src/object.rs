@@ -6,9 +6,9 @@ use crate::{material::bxdf::Bxdf, math::*};
 
 #[derive(Clone, Copy)]
 pub enum Axis {
-    X,
-    Y,
-    Z,
+    X(bool),
+    Y(bool),
+    Z(bool),
 }
 
 #[allow(unused)]
@@ -20,7 +20,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
-        medium: Option<Medium>,
+        medium: Medium,
     },
 
     Rectangle {
@@ -31,7 +31,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
-        medium: Option<Medium>,
+        medium: Medium,
     },
 
     Triangle {
@@ -43,7 +43,7 @@ pub enum Object {
         color: Color,
         obj_id: i32,
         bbox: AABB,
-        medium: Option<Medium>,
+        medium: Medium,
     },
 }
 
@@ -66,7 +66,32 @@ impl Object {
                 min_p: center - Vec3::new(radius),
                 max_p: center + Vec3::new(radius),
             },
-            medium: None,
+            medium: Medium {
+                coeff_sc: -1.,
+                coeff_ex: -1.,
+            },
+        }
+    }
+
+    pub fn set_sphere_with_medium(
+        center: Point3,
+        radius: f64,
+        bxdf: Bxdf,
+        color: Color,
+        freshid: &mut FreshId,
+        medium: Medium,
+    ) -> Object {
+        Object::Sphere {
+            center,
+            radius,
+            bxdf,
+            color,
+            obj_id: freshid.gen_id(),
+            bbox: AABB {
+                min_p: center - Vec3::new(radius),
+                max_p: center + Vec3::new(radius),
+            },
+            medium,
         }
     }
 
@@ -89,7 +114,34 @@ impl Object {
             color,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
-            medium: None,
+            medium: Medium {
+                coeff_sc: -1.,
+                coeff_ex: -1.,
+            },
+        }
+    }
+
+    pub fn set_rect_with_medium(
+        axis: Axis,
+        p: Point3,
+        q: Point3,
+        bxdf: Bxdf,
+        color: Color,
+        freshid: &mut FreshId,
+        medium: Medium,
+    ) -> Object {
+        let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
+        let min_p = Vec3(fmin(p.0, q.0), fmin(p.1, q.1), fmin(p.2, q.2));
+
+        Object::Rectangle {
+            axis,
+            min_p,
+            max_p,
+            bxdf,
+            color,
+            obj_id: freshid.gen_id(),
+            bbox: AABB { min_p, max_p }.fix_aabb(),
+            medium,
         }
     }
 
@@ -121,7 +173,43 @@ impl Object {
             color,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
-            medium: None,
+            medium: Medium {
+                coeff_sc: -1.,
+                coeff_ex: -1.,
+            },
+        }
+    }
+
+    pub fn set_tri_with_medium(
+        p: Point3,
+        q: Point3,
+        r: Point3,
+        bxdf: Bxdf,
+        color: Color,
+        freshid: &mut FreshId,
+        medium: Medium,
+    ) -> Object {
+        let normal = cross(q - p, r - p).normalize();
+        let min_p = Vec3(
+            fmin(p.0, fmin(q.0, r.0)),
+            fmin(p.1, fmin(q.1, r.1)),
+            fmin(p.2, fmin(q.2, r.2)),
+        );
+        let max_p = Vec3(
+            fmax(p.0, fmax(q.0, r.0)),
+            fmax(p.1, fmax(q.1, r.1)),
+            fmax(p.2, fmax(q.2, r.2)),
+        );
+        Object::Triangle {
+            p,
+            pq: q - p,
+            pr: r - p,
+            normal,
+            bxdf,
+            color,
+            obj_id: freshid.gen_id(),
+            bbox: AABB { min_p, max_p }.fix_aabb(),
+            medium,
         }
     }
 
@@ -133,6 +221,7 @@ impl Object {
                 bxdf,
                 color,
                 obj_id: id,
+                medium,
                 ..
             } => {
                 if let Some((t, hitpoint, normal)) =
@@ -144,6 +233,7 @@ impl Object {
                     record.bxdf = *bxdf;
                     record.color = *color;
                     record.id = *id;
+                    record.medium = *medium;
                     true
                 } else {
                     false
@@ -156,6 +246,7 @@ impl Object {
                 bxdf,
                 color,
                 obj_id: id,
+                medium,
                 ..
             } => {
                 if let Some((t, hitpoint, normal)) =
@@ -167,6 +258,7 @@ impl Object {
                     record.bxdf = *bxdf;
                     record.color = *color;
                     record.id = *id;
+                    record.medium = *medium;
                     true
                 } else {
                     false
@@ -180,6 +272,7 @@ impl Object {
                 bxdf,
                 color,
                 obj_id: id,
+                medium,
                 ..
             } => {
                 if let Some((t, hitpoint)) = hit_triangle(p, pq, pr, normal, ray, record.distance) {
@@ -189,6 +282,7 @@ impl Object {
                     record.bxdf = *bxdf;
                     record.color = *color;
                     record.id = *id;
+                    record.medium = *medium;
                     true
                 } else {
                     false
@@ -239,9 +333,9 @@ impl Object {
             Object::Rectangle {
                 axis, min_p, max_p, ..
             } => match axis {
-                Axis::X => (max_p.1 - min_p.1) * (max_p.2 - min_p.2),
-                Axis::Y => (max_p.0 - min_p.0) * (max_p.2 - min_p.2),
-                Axis::Z => (max_p.0 - min_p.0) * (max_p.1 - min_p.1),
+                Axis::X(_) => (max_p.1 - min_p.1) * (max_p.2 - min_p.2),
+                Axis::Y(_) => (max_p.0 - min_p.0) * (max_p.2 - min_p.2),
+                Axis::Z(_) => (max_p.0 - min_p.0) * (max_p.1 - min_p.1),
             },
             Object::Triangle { pq, pr, .. } => cross(*pq, *pr).length() / 2.,
         }
@@ -250,14 +344,6 @@ impl Object {
     pub fn get_center(&self) -> Point3 {
         let bbox = self.get_bbox();
         (bbox.min_p + bbox.max_p) / 2.
-    }
-
-    pub fn get_medium(&self) -> &Option<Medium> {
-        match self {
-            Object::Sphere { medium, .. }
-            | Object::Rectangle { medium, .. }
-            | Object::Triangle { medium, .. } => medium,
-        }
     }
 }
 
@@ -305,7 +391,7 @@ pub fn hit_rect(
     let hitpoint;
     let t;
     match axis {
-        Axis::X => {
+        Axis::X(face) => {
             if ray.dir.0.abs() < EPS {
                 return None;
             }
@@ -324,10 +410,10 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(1., 0., 0.)));
+                return Some((t, hitpoint, Vec3(get_face(*face), 0., 0.)));
             }
         }
-        Axis::Y => {
+        Axis::Y(face) => {
             if ray.dir.1.abs() < EPS {
                 return None;
             }
@@ -346,10 +432,10 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(0., 1., 0.)));
+                return Some((t, hitpoint, Vec3(0., get_face(*face), 0.)));
             }
         }
-        Axis::Z => {
+        Axis::Z(face) => {
             if ray.dir.2.abs() < EPS {
                 return None;
             }
@@ -368,7 +454,7 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(0., 0., 1.)));
+                return Some((t, hitpoint, Vec3(0., 0., get_face(*face))));
             }
         }
     }
@@ -442,19 +528,19 @@ pub fn sample_rect(
     let oa;
     let ob;
     match axis {
-        Axis::X => {
+        Axis::X(_) => {
             area = diagnal.1 * diagnal.2;
             normal = Vec3(1., 0., 0.);
             oa = Vec3(0., diagnal.1, 0.);
             ob = Vec3(0., 0., diagnal.2);
         }
-        Axis::Y => {
+        Axis::Y(_) => {
             area = diagnal.0 * diagnal.2;
             normal = Vec3(0., 1., 0.);
             oa = Vec3(diagnal.0, 0., 0.);
             ob = Vec3(0., 0., diagnal.2);
         }
-        Axis::Z => {
+        Axis::Z(_) => {
             area = diagnal.0 * diagnal.1;
             normal = Vec3(0., 0., 1.);
             oa = Vec3(diagnal.0, 0., 0.);
@@ -509,4 +595,8 @@ pub fn pdf_sample_tri(org: &Point3, pos: &Point3, obj: &Object, normal: Vec3) ->
     let l_sq = (*pos - *org).length_sq();
     let cos_theta = dot((*pos - *org).normalize(), normal).abs();
     l_sq / (obj.get_area() * cos_theta)
+}
+
+fn get_face(face: bool) -> f64 {
+    if face { 1. } else { -1. }
 }

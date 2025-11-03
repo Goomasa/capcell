@@ -1,6 +1,6 @@
 use crate::{
     camera::{LensModel, PinholeModel},
-    material::bxdf::Bxdf,
+    material::{bxdf::Bxdf, medium::Medium},
     math::Vec3,
     object::{Axis, Object},
     random::FreshId,
@@ -27,7 +27,7 @@ pub fn cornel_box() {
     let obj_id = &mut FreshId::new();
 
     let rect0 = Object::set_rect(
-        Axis::Y,
+        Axis::Y(true),
         Vec3(-25., 0., 0.),
         Vec3(25., 0., -50.),
         Bxdf::Lambertian,
@@ -35,7 +35,7 @@ pub fn cornel_box() {
         obj_id,
     );
     let rect1 = Object::set_rect(
-        Axis::Y,
+        Axis::Y(true),
         Vec3(-25., 50., 0.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
@@ -43,7 +43,7 @@ pub fn cornel_box() {
         obj_id,
     );
     let rect2 = Object::set_rect(
-        Axis::X,
+        Axis::X(true),
         Vec3(-25., 0., 0.),
         Vec3(-25., 50., -50.),
         Bxdf::Lambertian,
@@ -51,7 +51,7 @@ pub fn cornel_box() {
         obj_id,
     );
     let rect3 = Object::set_rect(
-        Axis::X,
+        Axis::X(true),
         Vec3(25., 0., 0.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
@@ -59,7 +59,7 @@ pub fn cornel_box() {
         obj_id,
     );
     let rect4 = Object::set_rect(
-        Axis::Z,
+        Axis::Z(true),
         Vec3(-25., 0., -50.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
@@ -68,28 +68,25 @@ pub fn cornel_box() {
     );
 
     let rect5 = Object::set_rect(
-        Axis::Y,
-        Vec3(-5., 49.99, -20.),
-        Vec3(5., 49.99, -30.),
+        Axis::Y(false),
+        Vec3(-5., 49., -20.),
+        Vec3(5., 49., -30.),
         Bxdf::Light,
         Vec3::new(45.),
         obj_id,
     );
 
-    let sphere = Object::set_sphere(
-        Vec3(0., 7.5, -25.),
-        7.5,
-        Bxdf::CompositeBrdf {
-            basecolor: Vec3::new(1.),
-            metalic: 0.2,
-            highlight: Vec3::new(1.),
-            roughness: 0.2,
-        },
+    let medium = Object::set_rect_with_medium(
+        Axis::Z(true),
+        Vec3(-25., 0., 0.1),
+        Vec3(25., 50., 0.1),
+        Bxdf::NoSurface,
         Vec3::new(1.),
         obj_id,
+        Medium::new(0.03, 0.),
     );
 
-    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &sphere];
+    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &medium];
 
     let camera = LensModel::new(
         600,
@@ -101,8 +98,8 @@ pub fn cornel_box() {
         42.,
         96.,
         100.,
-        4,
-        4,
+        8,
+        8,
     );
 
     let scene = Scene::new(objects, Vec3::zero());
@@ -115,7 +112,7 @@ fn spheres() {
     let obj_id = &mut FreshId::new();
 
     let floor = Object::set_rect(
-        Axis::Y,
+        Axis::Y(true),
         Vec3(-25., 10., -10.),
         Vec3(25., 10., -30.),
         Bxdf::Lambertian,
@@ -124,7 +121,7 @@ fn spheres() {
     );
 
     let light = Object::set_rect(
-        Axis::Y,
+        Axis::Y(false),
         Vec3(-15., 40., -10.),
         Vec3(15., 40., -30.),
         Bxdf::Light,
@@ -172,10 +169,7 @@ fn spheres() {
     let s4 = Object::set_sphere(
         Vec3(20., 15., -20.),
         5.,
-        Bxdf::MicroBtdf {
-            a: 0.7,
-            ior: IOR_GLASS,
-        },
+        Bxdf::MicroBtdf { a: 0.7, ior: 1.5 },
         Vec3::new(1.),
         obj_id,
     );
@@ -189,8 +183,8 @@ fn spheres() {
         40.,
         Vec3(0., 0., -1.).normalize(),
         30.,
-        6,
-        6,
+        8,
+        8,
     );
 
     let scene = Scene::new(objects, Vec3::zero());
@@ -200,8 +194,8 @@ fn spheres() {
 
 fn main() {
     let start = std::time::Instant::now();
-    //cornel_box();
-    spheres();
+    cornel_box();
+    //spheres();
     let end = start.elapsed();
     println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 }
