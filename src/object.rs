@@ -2,6 +2,7 @@ use crate::aabb::AABB;
 use crate::material::medium::Medium;
 use crate::random::{FreshId, XorRand};
 use crate::ray::*;
+use crate::texture::Texture;
 use crate::{material::bxdf::Bxdf, math::*};
 
 #[derive(Clone, Copy)]
@@ -17,7 +18,7 @@ pub enum Object {
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -28,7 +29,7 @@ pub enum Object {
         min_p: Point3,
         max_p: Point3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -40,7 +41,7 @@ pub enum Object {
         pr: Point3,
         normal: Vec3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -53,14 +54,14 @@ impl Object {
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
     ) -> Object {
         Object::Sphere {
             center,
             radius,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB {
                 min_p: center - Vec3::new(radius),
@@ -77,7 +78,7 @@ impl Object {
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
         medium: Medium,
     ) -> Object {
@@ -85,7 +86,7 @@ impl Object {
             center,
             radius,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB {
                 min_p: center - Vec3::new(radius),
@@ -100,7 +101,7 @@ impl Object {
         p: Point3,
         q: Point3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
     ) -> Object {
         let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
@@ -111,7 +112,7 @@ impl Object {
             min_p,
             max_p,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium: Medium {
@@ -126,7 +127,7 @@ impl Object {
         p: Point3,
         q: Point3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
         medium: Medium,
     ) -> Object {
@@ -138,7 +139,7 @@ impl Object {
             min_p,
             max_p,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium,
@@ -150,7 +151,7 @@ impl Object {
         q: Point3,
         r: Point3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
     ) -> Object {
         let normal = cross(q - p, r - p).normalize();
@@ -170,7 +171,7 @@ impl Object {
             pr: r - p,
             normal,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium: Medium {
@@ -185,7 +186,7 @@ impl Object {
         q: Point3,
         r: Point3,
         bxdf: Bxdf,
-        color: Color,
+        texture: Texture,
         freshid: &mut FreshId,
         medium: Medium,
     ) -> Object {
@@ -206,7 +207,7 @@ impl Object {
             pr: r - p,
             normal,
             bxdf,
-            color,
+            texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium,
@@ -219,7 +220,7 @@ impl Object {
                 center,
                 radius,
                 bxdf,
-                color,
+                texture,
                 obj_id: id,
                 medium,
                 ..
@@ -231,7 +232,7 @@ impl Object {
                     record.hitpoint = hitpoint;
                     record.normal = normal;
                     record.bxdf = *bxdf;
-                    record.color = *color;
+                    record.color = texture.get_color(0., 0.);
                     record.id = *id;
                     record.medium = *medium;
                     true
@@ -244,19 +245,19 @@ impl Object {
                 min_p,
                 max_p,
                 bxdf,
-                color,
+                texture,
                 obj_id: id,
                 medium,
                 ..
             } => {
-                if let Some((t, hitpoint, normal)) =
+                if let Some((t, hitpoint, normal, (u, v))) =
                     hit_rect(axis, max_p, min_p, ray, record.distance)
                 {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = normal;
                     record.bxdf = *bxdf;
-                    record.color = *color;
+                    record.color = texture.get_color(u, v);
                     record.id = *id;
                     record.medium = *medium;
                     true
@@ -270,7 +271,7 @@ impl Object {
                 pr,
                 normal,
                 bxdf,
-                color,
+                texture,
                 obj_id: id,
                 medium,
                 ..
@@ -280,7 +281,7 @@ impl Object {
                     record.hitpoint = hitpoint;
                     record.normal = *normal;
                     record.bxdf = *bxdf;
-                    record.color = *color;
+                    record.color = texture.get_color(0., 0.);
                     record.id = *id;
                     record.medium = *medium;
                     true
@@ -387,8 +388,9 @@ pub fn hit_rect(
     min_p: &Point3,
     ray: &Ray,
     max_dist: f64,
-) -> Option<(f64, Point3, Vec3)> {
+) -> Option<(f64, Point3, Vec3, (f64, f64))> {
     let hitpoint;
+    let diff = *max_p - *min_p;
     let t;
     match axis {
         Axis::X(face) => {
@@ -410,7 +412,13 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(get_face(*face), 0., 0.)));
+                let hd = hitpoint - *min_p;
+                return Some((
+                    t,
+                    hitpoint,
+                    Vec3(get_face(*face), 0., 0.),
+                    (hd.2 / diff.2, hd.1 / diff.1),
+                ));
             }
         }
         Axis::Y(face) => {
@@ -432,7 +440,13 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(0., get_face(*face), 0.)));
+                let hd = hitpoint - *min_p;
+                return Some((
+                    t,
+                    hitpoint,
+                    Vec3(0., get_face(*face), 0.),
+                    (hd.0 / diff.0, hd.2 / diff.2),
+                ));
             }
         }
         Axis::Z(face) => {
@@ -454,7 +468,13 @@ pub fn hit_rect(
             {
                 return None;
             } else {
-                return Some((t, hitpoint, Vec3(0., 0., get_face(*face))));
+                let hd = hitpoint - *min_p;
+                return Some((
+                    t,
+                    hitpoint,
+                    Vec3(0., 0., get_face(*face)),
+                    (hd.0 / diff.0, hd.1 / diff.1),
+                ));
             }
         }
     }

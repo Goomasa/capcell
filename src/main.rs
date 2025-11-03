@@ -6,6 +6,7 @@ use crate::{
     random::FreshId,
     render::render,
     scene::Scene,
+    texture::Texture,
 };
 
 mod aabb;
@@ -19,6 +20,7 @@ mod random;
 mod ray;
 mod render;
 mod scene;
+mod texture;
 
 const IOR_GLASS: f64 = 1.5;
 
@@ -31,7 +33,7 @@ pub fn cornel_box() {
         Vec3(-25., 0., 0.),
         Vec3(25., 0., -50.),
         Bxdf::Lambertian,
-        Vec3::new(0.99),
+        Texture::set_checker(10, Vec3::new(0.1), Vec3::new(0.99)),
         obj_id,
     );
     let rect1 = Object::set_rect(
@@ -39,7 +41,7 @@ pub fn cornel_box() {
         Vec3(-25., 50., 0.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Vec3::new(0.99),
+        Texture::set_solid(Vec3::new(0.99)),
         obj_id,
     );
     let rect2 = Object::set_rect(
@@ -47,7 +49,7 @@ pub fn cornel_box() {
         Vec3(-25., 0., 0.),
         Vec3(-25., 50., -50.),
         Bxdf::Lambertian,
-        Vec3(1., 0.1, 0.1),
+        Texture::set_solid(Vec3(1., 0.1, 0.1)),
         obj_id,
     );
     let rect3 = Object::set_rect(
@@ -55,7 +57,7 @@ pub fn cornel_box() {
         Vec3(25., 0., 0.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Vec3(0.1, 1., 0.1),
+        Texture::set_solid(Vec3(0.1, 1., 0.1)),
         obj_id,
     );
     let rect4 = Object::set_rect(
@@ -63,7 +65,7 @@ pub fn cornel_box() {
         Vec3(-25., 0., -50.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Vec3::new(0.99),
+        Texture::set_solid(Vec3::new(0.99)),
         obj_id,
     );
 
@@ -72,7 +74,15 @@ pub fn cornel_box() {
         Vec3(-5., 49., -20.),
         Vec3(5., 49., -30.),
         Bxdf::Light,
-        Vec3::new(45.),
+        Texture::set_solid(Vec3::new(45.)),
+        obj_id,
+    );
+
+    let s1 = Object::set_sphere(
+        Vec3(10., 7., -15.),
+        7.,
+        Bxdf::MicroBrdf { ax: 0.1, ay: 0.5 },
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
@@ -81,12 +91,12 @@ pub fn cornel_box() {
         Vec3(-25., 0., 0.1),
         Vec3(25., 50., 0.1),
         Bxdf::NoSurface,
-        Vec3::new(1.),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
         Medium::new(0.03, 0.),
     );
 
-    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &medium];
+    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &s1];
 
     let camera = LensModel::new(
         600,
@@ -98,8 +108,8 @@ pub fn cornel_box() {
         42.,
         96.,
         100.,
-        8,
-        8,
+        4,
+        4,
     );
 
     let scene = Scene::new(objects, Vec3::zero());
@@ -116,7 +126,7 @@ fn spheres() {
         Vec3(-25., 10., -10.),
         Vec3(25., 10., -30.),
         Bxdf::Lambertian,
-        Vec3::new(0.99),
+        Texture::set_solid(Vec3::new(0.99)),
         obj_id,
     );
 
@@ -125,7 +135,7 @@ fn spheres() {
         Vec3(-15., 40., -10.),
         Vec3(15., 40., -30.),
         Bxdf::Light,
-        Vec3::new(10.),
+        Texture::set_solid(Vec3::new(10.)),
         obj_id,
     );
 
@@ -140,7 +150,7 @@ fn spheres() {
         Vec3(-20., 15., -20.),
         5.,
         Bxdf::MicroBtdf { a: 0.1, ior: 1.5 },
-        Vec3::new(1.),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
@@ -151,7 +161,7 @@ fn spheres() {
             a: 0.3,
             ior: IOR_GLASS,
         },
-        Vec3::new(1.),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
@@ -162,7 +172,7 @@ fn spheres() {
             a: 0.5,
             ior: IOR_GLASS,
         },
-        Vec3::new(1.),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
@@ -170,7 +180,7 @@ fn spheres() {
         Vec3(20., 15., -20.),
         5.,
         Bxdf::MicroBtdf { a: 0.7, ior: 1.5 },
-        Vec3::new(1.),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
