@@ -22,6 +22,7 @@ name = "capcell"
 version = "0.1.0"
 dependencies = [
  "bmp",
+ "hdrldr",
  "rayon",
 ]
 
@@ -55,6 +56,12 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+
+[[package]]
+name = "hdrldr"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6cb717c5ebe824622289dc405a0415152ce835d162d43bf05fd902e394d5609"
 
 [[package]]
 name = "rayon"

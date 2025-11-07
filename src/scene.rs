@@ -5,6 +5,7 @@ use crate::{
     object::{Object, pdf_sample_rect, pdf_sample_sphere, pdf_sample_tri},
     random::XorRand,
     ray::{HitRecord, Ray},
+    texture::Texture,
 };
 
 pub struct NeeResult {
@@ -26,14 +27,14 @@ impl NeeResult {
 }
 
 pub struct Scene<'a> {
-    pub objects: Vec<&'a Object>,
-    pub background: Color,
-    pub lights: Vec<&'a Object>,
+    pub objects: Vec<&'a Object<'a>>,
+    pub background: Texture<'a>,
+    pub lights: Vec<&'a Object<'a>>,
     pub bvh_tree: BvhTree,
 }
 
 impl<'a> Scene<'a> {
-    pub fn new(mut objs: Vec<&'a Object>, back: Color) -> Self {
+    pub fn new(mut objs: Vec<&'a Object>, back: Texture<'a>) -> Self {
         objs.shrink_to_fit();
         let lights = objs
             .clone()

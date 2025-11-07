@@ -7,6 +7,7 @@ use crate::{
         microfacet::*,
     },
     math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin, multiply},
+    object::sphere_uv,
     random::XorRand,
     ray::{HitRecord, Ray},
     scene::Scene,
@@ -89,7 +90,9 @@ impl Pathtracing {
     fn ray_intersect(&mut self, scene: &Scene) -> bool {
         self.record = HitRecord::new();
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
-            self.rad = self.rad + multiply(self.throughput, scene.background) / self.roulette_pdf;
+            let (u, v) = sphere_uv(&Vec3::zero(), &self.now_ray.dir);
+            self.rad = self.rad
+                + multiply(self.throughput, scene.background.get_color(u, v)) / self.roulette_pdf;
             return false;
         }
         true

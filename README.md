@@ -8,6 +8,7 @@ Capcell is a cpu-pathtracer written in Rust
 
 - bmp: https://github.com/sondrele/rust-bmp
 - rayon: https://github.com/rayon-rs/rayon
+- hdrldr: https://github.com/TechPriest/hdrldr
 
 ## Usage
 

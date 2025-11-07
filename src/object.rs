@@ -13,12 +13,12 @@ pub enum Axis {
 }
 
 #[allow(unused)]
-pub enum Object {
+pub enum Object<'a> {
     Sphere {
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -29,7 +29,7 @@ pub enum Object {
         min_p: Point3,
         max_p: Point3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -41,7 +41,7 @@ pub enum Object {
         pr: Point3,
         normal: Vec3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         obj_id: i32,
         bbox: AABB,
         medium: Medium,
@@ -49,14 +49,14 @@ pub enum Object {
 }
 
 #[allow(unused)]
-impl Object {
+impl<'a> Object<'a> {
     pub fn set_sphere(
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
-    ) -> Object {
+    ) -> Object<'a> {
         Object::Sphere {
             center,
             radius,
@@ -78,10 +78,10 @@ impl Object {
         center: Point3,
         radius: f64,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
         medium: Medium,
-    ) -> Object {
+    ) -> Object<'a> {
         Object::Sphere {
             center,
             radius,
@@ -101,9 +101,9 @@ impl Object {
         p: Point3,
         q: Point3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
-    ) -> Object {
+    ) -> Object<'a> {
         let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
         let min_p = Vec3(fmin(p.0, q.0), fmin(p.1, q.1), fmin(p.2, q.2));
 
@@ -127,10 +127,10 @@ impl Object {
         p: Point3,
         q: Point3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
         medium: Medium,
-    ) -> Object {
+    ) -> Object<'a> {
         let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
         let min_p = Vec3(fmin(p.0, q.0), fmin(p.1, q.1), fmin(p.2, q.2));
 
@@ -151,9 +151,9 @@ impl Object {
         q: Point3,
         r: Point3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
-    ) -> Object {
+    ) -> Object<'a> {
         let normal = cross(q - p, r - p).normalize();
         let min_p = Vec3(
             fmin(p.0, fmin(q.0, r.0)),
@@ -186,10 +186,10 @@ impl Object {
         q: Point3,
         r: Point3,
         bxdf: Bxdf,
-        texture: Texture,
+        texture: Texture<'a>,
         freshid: &mut FreshId,
         medium: Medium,
-    ) -> Object {
+    ) -> Object<'a> {
         let normal = cross(q - p, r - p).normalize();
         let min_p = Vec3(
             fmin(p.0, fmin(q.0, r.0)),
@@ -232,7 +232,10 @@ impl Object {
                     record.hitpoint = hitpoint;
                     record.normal = normal;
                     record.bxdf = *bxdf;
-                    record.color = texture.get_color(0., 0.);
+                    record.color = {
+                        let (u, v) = sphere_uv(center, &hitpoint);
+                        texture.get_color(u, v)
+                    };
                     record.id = *id;
                     record.medium = *medium;
                     true
@@ -346,6 +349,33 @@ impl Object {
         let bbox = self.get_bbox();
         (bbox.min_p + bbox.max_p) / 2.
     }
+}
+
+pub fn sphere_uv(center: &Point3, pos: &Point3) -> (f64, f64) {
+    let op = (*pos - *center).normalize();
+    let theta = dot(Vec3(0., 1., 0.), op).acos(); // 0 - PI
+    let u_op = dot(Vec3(0., 0., 1.), op);
+
+    let mut phi; // 0 - 2PI
+    if u_op < EPS && u_op >= 0. {
+        phi = PI / 2.;
+    } else if u_op > -EPS && u_op < 0. {
+        phi = 3. * PI / 2.
+    } else if PI - theta < EPS || theta + PI < EPS {
+        phi = 0.
+    } else {
+        phi = (dot(Vec3(1., 0., 0.), op) / u_op).atan();
+        let cos_phi = u_op / theta.sin();
+        if cos_phi < 0. && phi < 0. {
+            phi = PI + phi;
+        } else if cos_phi < 0. && phi > 0. {
+            phi = PI + phi;
+        } else if cos_phi > 0. && phi < 0. {
+            phi = 2. * PI + phi;
+        }
+    }
+
+    (phi / (2. * PI), theta / PI)
 }
 
 fn hit_sphere(

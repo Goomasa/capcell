@@ -6,7 +6,7 @@ use crate::{
     random::FreshId,
     render::render,
     scene::Scene,
-    texture::Texture,
+    texture::{Texture, load_hdr},
 };
 
 mod aabb;
@@ -21,8 +21,6 @@ mod ray;
 mod render;
 mod scene;
 mod texture;
-
-const IOR_GLASS: f64 = 1.5;
 
 #[allow(unused)]
 pub fn cornel_box() {
@@ -112,7 +110,7 @@ pub fn cornel_box() {
         4,
     );
 
-    let scene = Scene::new(objects, Vec3::zero());
+    let scene = Scene::new(objects, Texture::set_solid(Vec3::zero()));
 
     let _ = render(&camera, &scene);
 }
@@ -139,17 +137,15 @@ fn spheres() {
         obj_id,
     );
 
-    /*
     let basecolor = Vec3(1., 0.1, 0.1);
     let specular = 0.7;
     let metalic = 0.5;
     let roughness = 0.1;
-    */
 
     let s1 = Object::set_sphere(
         Vec3(-20., 15., -20.),
         5.,
-        Bxdf::MicroBtdf { a: 0.1, ior: 1.5 },
+        Bxdf::set_comp(basecolor, metalic, specular, roughness),
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
@@ -157,10 +153,7 @@ fn spheres() {
     let s2 = Object::set_sphere(
         Vec3(-7., 15., -20.),
         5.,
-        Bxdf::MicroBtdf {
-            a: 0.3,
-            ior: IOR_GLASS,
-        },
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.2),
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
@@ -168,10 +161,7 @@ fn spheres() {
     let s3 = Object::set_sphere(
         Vec3(7., 15., -20.),
         5.,
-        Bxdf::MicroBtdf {
-            a: 0.5,
-            ior: IOR_GLASS,
-        },
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.4),
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
@@ -179,7 +169,7 @@ fn spheres() {
     let s4 = Object::set_sphere(
         Vec3(20., 15., -20.),
         5.,
-        Bxdf::MicroBtdf { a: 0.7, ior: 1.5 },
+        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.6),
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
@@ -193,19 +183,20 @@ fn spheres() {
         40.,
         Vec3(0., 0., -1.).normalize(),
         30.,
-        8,
-        8,
+        4,
+        4,
     );
 
-    let scene = Scene::new(objects, Vec3::zero());
+    let (data, width, height) = load_hdr("assets/kloofendal_48d_partly_cloudy_puresky_1k.hdr");
+    let scene = Scene::new(objects, Texture::set_image(&data, width, height));
 
     let _ = render(&camera, &scene);
 }
 
 fn main() {
     let start = std::time::Instant::now();
-    cornel_box();
-    //spheres();
+    //cornel_box();
+    spheres();
     let end = start.elapsed();
     println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 }
