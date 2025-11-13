@@ -10,26 +10,26 @@ pub struct Ray {
 }
 
 #[derive(Clone, Copy)]
-pub struct HitRecord {
+pub struct HitRecord<'a> {
     pub distance: f64,
     pub hitpoint: Point3,
     pub normal: Vec3,
     pub color: Color,
-    pub bxdf: Bxdf,
+    pub bxdf: &'a Bxdf,
     pub id: i32,
-    pub medium: Medium,
+    pub medium: &'a Medium,
 }
 
-impl HitRecord {
+impl<'a> HitRecord<'a> {
     pub fn new() -> Self {
         HitRecord {
             distance: INF,
             hitpoint: Vec3::zero(),
             normal: Vec3::zero(),
             color: Vec3::zero(),
-            bxdf: Bxdf::Lambertian,
+            bxdf: &Bxdf::Lambertian,
             id: -1,
-            medium: Medium {
+            medium: &Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
                 g: 0.,
@@ -43,9 +43,9 @@ impl HitRecord {
             hitpoint: Vec3::zero(),
             normal: Vec3::zero(),
             color: Vec3::zero(),
-            bxdf: Bxdf::Lambertian,
+            bxdf: &Bxdf::Lambertian,
             id: -1,
-            medium: Medium {
+            medium: &Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
                 g: 0.,

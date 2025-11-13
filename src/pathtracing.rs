@@ -16,18 +16,18 @@ use crate::{
 const DEPTH: u32 = 6;
 const MAX_DEPTH: u32 = 20;
 
-pub struct Pathtracing {
-    record: HitRecord,
+pub struct Pathtracing<'a> {
+    record: HitRecord<'a>,
     now_ray: Ray,
     roulette_pdf: f64,
     orienting_normal: Vec3,
     throughput: Vec3,
     rad: Color,
     pt_sample_pdf: f64,
-    medium_stack: Vec<(f64, f64, f64, f32)>, // (ior, scattering_coeff, extinction_coeff, g)
+    medium_stack: Vec<(f64, &'a Medium)>, // (ior, scattering_coeff, extinction_coeff, g)
 }
 
-impl Pathtracing {
+impl<'a> Pathtracing<'a> {
     pub fn new(ray: Ray) -> Self {
         Pathtracing {
             record: HitRecord::new(),
@@ -37,25 +37,30 @@ impl Pathtracing {
             throughput: Vec3::new(1.),
             rad: Vec3::new(0.),
             pt_sample_pdf: -1.,
-            medium_stack: vec![(1., -1., -1., 0.)],
+            medium_stack: vec![(
+                1.,
+                &Medium {
+                    coeff_sc: -1.,
+                    coeff_ex: -1.,
+                    g: 0.,
+                },
+            )],
         }
     }
 
-    fn update_medium_stack(&mut self, into: bool, ior: f64, medium: &Medium) {
+    fn update_medium_stack(&mut self, into: bool, ior: f64, medium: &'a Medium) {
         if into {
-            self.medium_stack
-                .push((ior, medium.coeff_sc, medium.coeff_ex, medium.g));
+            self.medium_stack.push((ior, medium));
         } else {
-            self.medium_stack.pop();
-            if self.medium_stack.is_empty() {
-                // error
-                self.medium_stack.push((1., -1., -1., 0.));
+            if self.medium_stack.len() > 1 {
+                self.medium_stack.pop();
             }
+            // else: error
         }
     }
 
     fn get_coeff_ex(&self) -> f64 {
-        self.medium_stack.last().unwrap().2
+        self.medium_stack.last().unwrap().1.coeff_ex
     }
 
     fn get_ior(&self, ior: f64, into: bool) -> (f64, f64) {
@@ -87,7 +92,7 @@ impl Pathtracing {
         prob
     }
 
-    fn ray_intersect(&mut self, scene: &Scene) -> bool {
+    fn ray_intersect(&mut self, scene: &'a Scene) -> bool {
         self.record = HitRecord::new();
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
             let (u, v) = sphere_uv(&Vec3::zero(), &self.now_ray.dir);
@@ -140,7 +145,7 @@ impl Pathtracing {
         self.pt_sample_pdf = INF;
     }
 
-    fn trace_glass(&mut self, ior: f64, medium: Medium, rand: &mut XorRand) {
+    fn trace_glass(&mut self, ior: f64, medium: &'a Medium, rand: &mut XorRand) {
         let into = dot(self.orienting_normal, self.record.normal) > 0.;
         let (ior_from, ior_to) = self.get_ior(ior, into);
         //let (ior_from, ior_to) = if into { (ior, 1.) } else { (1., ior) };
@@ -154,7 +159,7 @@ impl Pathtracing {
         );
 
         if is_refract {
-            self.update_medium_stack(into, ior, &medium);
+            self.update_medium_stack(into, ior, medium);
             let org = self.record.hitpoint - 0.00001 * self.orienting_normal;
             self.now_ray = Ray { org, dir: wi };
             self.throughput = multiply(self.throughput, self.record.color) * (1. - reflectance);
@@ -216,7 +221,7 @@ impl Pathtracing {
         rand: &mut XorRand,
         a: f64,
         ior: f64,
-        medium: Medium,
+        medium: &'a Medium,
     ) {
         let wo = -self.now_ray.dir;
         let wm = sample_ggx_vndf(&self.orienting_normal, &wo, a, a, rand);
@@ -232,7 +237,7 @@ impl Pathtracing {
 
         let vndf;
         if is_refract {
-            self.update_medium_stack(into, ior, &medium);
+            self.update_medium_stack(into, ior, medium);
             let org = self.record.hitpoint - self.orienting_normal * 0.00001;
             self.now_ray = Ray { org, dir: wi };
             let j = micro_btdf_j(ior_from, ior_to, &wo, &wi, &wm);
@@ -382,19 +387,19 @@ impl Pathtracing {
         }
     }
 
-    pub fn freepath_sample(&mut self, scene: &Scene, rand: &mut XorRand) -> bool {
-        let (_, coeff_sc, coeff_ex, g) = self.medium_stack.last().unwrap();
-        let dist = -1. * (rand.next01()).ln() / *coeff_ex;
+    pub fn freepath_sample(&mut self, scene: &'a Scene, rand: &mut XorRand) -> bool {
+        let (_, medium) = self.medium_stack.last().unwrap();
+        let dist = -1. * (rand.next01()).ln() / medium.coeff_ex;
 
         self.record = HitRecord::init_with_distance(dist);
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
-            self.throughput = self.throughput * (*coeff_sc / *coeff_ex);
+            self.throughput = self.throughput * (medium.coeff_sc / medium.coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
-            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, *g as f64, rand);
+            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, medium.g as f64, rand);
 
-            let nee_result = scene.nee(&org, *coeff_ex, rand);
+            let nee_result = scene.nee(&org, medium.coeff_ex, rand);
             if nee_result.pdf != 0. {
-                let nee_hg_pdf = pdf_phase(&nee_result.dir, *g as f64, &self.now_ray.dir);
+                let nee_hg_pdf = pdf_phase(&nee_result.dir, medium.g as f64, &self.now_ray.dir);
                 let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
                 self.rad = self.rad
                     + multiply(self.throughput, nee_result.color)
@@ -411,7 +416,7 @@ impl Pathtracing {
         true
     }
 
-    pub fn integrate(&mut self, scene: &Scene, rand: &mut XorRand) -> Color {
+    pub fn integrate(&mut self, scene: &'a Scene, rand: &mut XorRand) -> Color {
         for time in 0.. {
             let roulette_prob = self.roulette_prob(time);
             if rand.next01() > roulette_prob {
@@ -441,7 +446,7 @@ impl Pathtracing {
             match self.record.bxdf {
                 Bxdf::NoSurface => {
                     let into = dot(self.orienting_normal, self.record.normal) > 0.;
-                    self.update_medium_stack(into, 1., &medium);
+                    self.update_medium_stack(into, 1., medium);
                     self.now_ray.org = self.record.hitpoint - 0.00001 * self.orienting_normal;
                 }
                 Bxdf::Light => {
@@ -457,13 +462,13 @@ impl Pathtracing {
                     self.trace_mirror();
                 }
                 Bxdf::IdealGlass { ior } => {
-                    self.trace_glass(ior, medium, rand);
+                    self.trace_glass(*ior, medium, rand);
                 }
                 Bxdf::MicroBrdf { ax, ay } => {
-                    self.trace_microbrdf(scene, rand, ax, ay);
+                    self.trace_microbrdf(scene, rand, *ax, *ay);
                 }
                 Bxdf::MicroBtdf { a, ior } => {
-                    self.trace_microbtdf(scene, rand, a, ior, medium);
+                    self.trace_microbtdf(scene, rand, *a, *ior, medium);
                 }
                 Bxdf::CompositeBrdf {
                     basecolor,
@@ -471,7 +476,7 @@ impl Pathtracing {
                     highlight,
                     roughness,
                 } => {
-                    self.trace_composite(&basecolor, metalic, &highlight, roughness, scene, rand);
+                    self.trace_composite(&basecolor, *metalic, &highlight, *roughness, scene, rand);
                 }
             }
         }

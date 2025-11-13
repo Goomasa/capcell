@@ -33,7 +33,8 @@ pub fn render(camera: &impl Camara, scene: &Scene) {
                         let (g_term, org, dir) = camera.setup(u, v as u32, su, sv, &mut rand);
 
                         for _ in 0..spp {
-                            let mut tracer = Pathtracing::new(Ray { org, dir });
+                            let ray = Ray { org, dir };
+                            let mut tracer = Pathtracing::new(ray);
                             let rad = tracer.integrate(scene, &mut rand) * g_term;
                             if !is_valid(&rad) {
                                 continue;

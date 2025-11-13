@@ -217,7 +217,10 @@ impl<'a> Object<'a> {
         }
     }
 
-    pub fn hit(&self, ray: &Ray, record: &mut HitRecord) -> bool {
+    pub fn hit<'b>(&'a self, ray: &Ray, record: &'b mut HitRecord<'a>) -> bool
+    where
+        'a: 'b,
+    {
         match self {
             Object::Sphere {
                 center,
@@ -234,13 +237,13 @@ impl<'a> Object<'a> {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = normal;
-                    record.bxdf = *bxdf;
+                    record.bxdf = bxdf;
                     record.color = {
                         let (u, v) = sphere_uv(center, &hitpoint);
                         texture.get_color(u, v)
                     };
                     record.id = *id;
-                    record.medium = *medium;
+                    record.medium = medium;
                     true
                 } else {
                     false
@@ -262,10 +265,10 @@ impl<'a> Object<'a> {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = normal;
-                    record.bxdf = *bxdf;
+                    record.bxdf = bxdf;
                     record.color = texture.get_color(u, v);
                     record.id = *id;
-                    record.medium = *medium;
+                    record.medium = medium;
                     true
                 } else {
                     false
@@ -286,10 +289,10 @@ impl<'a> Object<'a> {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = *normal;
-                    record.bxdf = *bxdf;
+                    record.bxdf = bxdf;
                     record.color = texture.get_color(0., 0.);
                     record.id = *id;
-                    record.medium = *medium;
+                    record.medium = medium;
                     true
                 } else {
                     false
