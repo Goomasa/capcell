@@ -7,19 +7,21 @@ use crate::{
 pub struct Medium {
     pub coeff_sc: f64,
     pub coeff_ex: f64,
+    pub g: f32,
 }
 
 #[allow(unused)]
 impl Medium {
-    pub fn new(coeff_sc: f64, coeff_ab: f64) -> Self {
+    pub fn new(coeff_sc: f64, coeff_ab: f64, g: f32) -> Self {
         Medium {
             coeff_sc: fmax(coeff_sc, 0.01),
             coeff_ex: coeff_sc + coeff_ab,
+            g,
         }
     }
 }
 
-pub fn sample_phase(dir: &Vec3, rand: &mut XorRand) -> (Vec3, f64) {
+pub fn sample_phase(dir: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
     let w = *dir;
     let u = if w.0.abs() > EPS {
         cross(Vec3(0., 1., 0.), w).normalize()
@@ -30,10 +32,11 @@ pub fn sample_phase(dir: &Vec3, rand: &mut XorRand) -> (Vec3, f64) {
 
     let phi = 2. * PI * rand.next01();
 
-    let g = 0.8;
-    let cos_theta = {
+    let cos_theta = if g.abs() > EPS {
         let r = (1. - g * g) / (1. + g - 2. * g * rand.next01());
         -1. / (2. * g) * (1. + g * g - r * r)
+    } else {
+        1. - 2. * rand.next01()
     };
     let sin_theta = (1. - cos_theta * cos_theta).sqrt();
 
@@ -43,8 +46,7 @@ pub fn sample_phase(dir: &Vec3, rand: &mut XorRand) -> (Vec3, f64) {
     )
 }
 
-pub fn pdf_phase(dir: &Vec3, prev_dir: &Vec3) -> f64 {
+pub fn pdf_phase(dir: &Vec3, g: f64, prev_dir: &Vec3) -> f64 {
     let dot = dot(*prev_dir, *dir);
-    let g = 0.8;
     1. / (4. * PI) * (1. - g * g) / (1. + g * g + 2. * g * dot).powf(1.5)
 }

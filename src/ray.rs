@@ -32,6 +32,7 @@ impl HitRecord {
             medium: Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
+                g: 0.,
             },
         }
     }
@@ -47,6 +48,7 @@ impl HitRecord {
             medium: Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
+                g: 0.,
             },
         }
     }

@@ -69,8 +69,8 @@ pub fn cornel_box() {
 
     let rect5 = Object::set_rect(
         Axis::Y(false),
-        Vec3(-5., 49., -20.),
-        Vec3(5., 49., -30.),
+        Vec3(-5., 49.5, -20.),
+        Vec3(5., 49.5, -30.),
         Bxdf::Light,
         Texture::set_solid(Vec3::new(45.)),
         obj_id,
@@ -91,10 +91,10 @@ pub fn cornel_box() {
         Bxdf::NoSurface,
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
-        Medium::new(0.03, 0.),
+        Medium::new(0.02, 0., 0.8),
     );
 
-    let objects = vec![&rect0, &rect1, &rect2, &rect3, &rect4, &rect5, &s1];
+    let mut objects = vec![rect0, rect1, rect2, rect3, rect4, rect5, s1, medium];
 
     let camera = LensModel::new(
         600,
@@ -110,7 +110,7 @@ pub fn cornel_box() {
         4,
     );
 
-    let scene = Scene::new(objects, Texture::set_solid(Vec3::zero()));
+    let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
 
     let _ = render(&camera, &scene);
 }
@@ -174,7 +174,7 @@ fn spheres() {
         obj_id,
     );
 
-    let objects = vec![&floor, &light, &s1, &s2, &s3, &s4];
+    let mut objects = vec![floor, light, s1, s2, s3, s4];
 
     let camera = PinholeModel::new(
         Vec3(0., 25., 30.),
@@ -188,15 +188,15 @@ fn spheres() {
     );
 
     let (data, width, height) = load_hdr("assets/kloofendal_48d_partly_cloudy_puresky_1k.hdr");
-    let scene = Scene::new(objects, Texture::set_image(&data, width, height));
+    let scene = Scene::new(&mut objects, Texture::set_image(&data, width, height));
 
     let _ = render(&camera, &scene);
 }
 
 fn main() {
     let start = std::time::Instant::now();
-    //cornel_box();
-    spheres();
+    cornel_box();
+    //spheres();
     let end = start.elapsed();
     println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 }

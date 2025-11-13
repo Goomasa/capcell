@@ -24,7 +24,7 @@ pub struct Pathtracing {
     throughput: Vec3,
     rad: Color,
     pt_sample_pdf: f64,
-    medium_stack: Vec<(f64, f64, f64)>, // (ior, scattering_coeff, extinction_coeff)
+    medium_stack: Vec<(f64, f64, f64, f32)>, // (ior, scattering_coeff, extinction_coeff, g)
 }
 
 impl Pathtracing {
@@ -37,19 +37,19 @@ impl Pathtracing {
             throughput: Vec3::new(1.),
             rad: Vec3::new(0.),
             pt_sample_pdf: -1.,
-            medium_stack: vec![(1., -1., -1.)],
+            medium_stack: vec![(1., -1., -1., 0.)],
         }
     }
 
     fn update_medium_stack(&mut self, into: bool, ior: f64, medium: &Medium) {
         if into {
             self.medium_stack
-                .push((ior, medium.coeff_sc, medium.coeff_ex));
+                .push((ior, medium.coeff_sc, medium.coeff_ex, medium.g));
         } else {
             self.medium_stack.pop();
             if self.medium_stack.is_empty() {
                 // error
-                self.medium_stack.push((1., -1., -1.));
+                self.medium_stack.push((1., -1., -1., 0.));
             }
         }
     }
@@ -383,18 +383,18 @@ impl Pathtracing {
     }
 
     pub fn freepath_sample(&mut self, scene: &Scene, rand: &mut XorRand) -> bool {
-        let (_, coeff_sc, coeff_ex) = self.medium_stack.last().unwrap();
-        let dist = -1. * (rand.next01()).ln() / coeff_ex;
+        let (_, coeff_sc, coeff_ex, g) = self.medium_stack.last().unwrap();
+        let dist = -1. * (rand.next01()).ln() / *coeff_ex;
 
         self.record = HitRecord::init_with_distance(dist);
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
             self.throughput = self.throughput * (*coeff_sc / *coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
-            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, rand);
+            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, *g as f64, rand);
 
             let nee_result = scene.nee(&org, *coeff_ex, rand);
             if nee_result.pdf != 0. {
-                let nee_hg_pdf = pdf_phase(&nee_result.dir, &self.now_ray.dir);
+                let nee_hg_pdf = pdf_phase(&nee_result.dir, *g as f64, &self.now_ray.dir);
                 let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
                 self.rad = self.rad
                     + multiply(self.throughput, nee_result.color)

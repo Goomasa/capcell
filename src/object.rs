@@ -70,6 +70,7 @@ impl<'a> Object<'a> {
             medium: Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
+                g: 0.,
             },
         }
     }
@@ -118,6 +119,7 @@ impl<'a> Object<'a> {
             medium: Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
+                g: 0.,
             },
         }
     }
@@ -177,6 +179,7 @@ impl<'a> Object<'a> {
             medium: Medium {
                 coeff_sc: -1.,
                 coeff_ex: -1.,
+                g: 0.,
             },
         }
     }

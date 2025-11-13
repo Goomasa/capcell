@@ -27,23 +27,23 @@ impl NeeResult {
 }
 
 pub struct Scene<'a> {
-    pub objects: Vec<&'a Object<'a>>,
+    pub objects: &'a Vec<Object<'a>>,
     pub background: Texture<'a>,
     pub lights: Vec<&'a Object<'a>>,
     pub bvh_tree: BvhTree,
 }
 
 impl<'a> Scene<'a> {
-    pub fn new(mut objs: Vec<&'a Object>, back: Texture<'a>) -> Self {
+    pub fn new(objs: &'a mut Vec<Object>, back: Texture<'a>) -> Self {
+        objs.sort_by(|o1, o2| o1.get_obj_id().cmp(&o2.get_obj_id()));
         objs.shrink_to_fit();
         let lights = objs
-            .clone()
-            .into_iter()
+            .iter()
             .filter(|obj| obj.get_bxdf().is_light())
             .collect();
 
-        objs.sort_by(|o1, o2| o1.get_obj_id().cmp(&o2.get_obj_id()));
-        let mut bvh_tree = construct_bvh(&objs);
+        let tmp_objs = objs.iter().collect();
+        let mut bvh_tree = construct_bvh(&tmp_objs);
         bvh_tree.shrink_to_fit();
 
         Scene {
@@ -70,8 +70,8 @@ impl<'a> Scene<'a> {
     }
 
     pub fn pdf_sample_obj(&self, org: &Point3, record: &HitRecord) -> f64 {
-        let obj = self.objects[record.id as usize];
-        match obj {
+        let obj = &self.objects[record.id as usize];
+        match &obj {
             Object::Sphere { center, radius, .. } => pdf_sample_sphere(org, center, *radius),
             Object::Rectangle { .. } => pdf_sample_rect(org, &record.hitpoint, obj, record.normal),
             Object::Triangle { .. } => pdf_sample_tri(org, &record.hitpoint, obj, record.normal),
