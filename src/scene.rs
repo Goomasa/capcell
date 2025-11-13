@@ -1,6 +1,6 @@
 use crate::{
     bvh::{BvhNode, BvhTree, construct_bvh},
-    material::bxdf::Bxdf,
+    material::{bxdf::Bxdf, medium::pdfs_sample_distance},
     math::{Color, Point3, Vec3, dot},
     object::{Object, pdf_sample_rect, pdf_sample_sphere, pdf_sample_tri},
     random::XorRand,
@@ -12,7 +12,7 @@ pub struct NeeResult {
     pub dir: Vec3,
     pub color: Color,
     pub pdf: f64,
-    pub transmittance: f64,
+    pub transmittance: Vec3,
 }
 
 impl NeeResult {
@@ -21,7 +21,7 @@ impl NeeResult {
             dir: Vec3::zero(),
             color: Color::zero(),
             pdf: 0.,
-            transmittance: 1.,
+            transmittance: Vec3::new(1.),
         }
     }
 }
@@ -89,44 +89,46 @@ impl<'a> Scene<'a> {
     pub fn calc_transmittance(
         &self,
         ray: &mut Ray,
-        coeff_ex: f64,
+        coeff_ex: &Vec3,
         light_id: i32,
         distance: f64,
-    ) -> (f64, Color) {
-        // retrun (transmittance, emission)
-        let mut has_medium = coeff_ex > 0.;
-        let mut now_coeff = if has_medium { coeff_ex } else { 0. };
-        let mut transmittance = 1.;
+    ) -> (Vec3, Color) {
+        // retrun (transmittances, emission)
+        let mut has_medium = coeff_ex.0 > 0.;
+        let mut now_coeff = if has_medium { *coeff_ex } else { Vec3::zero() };
+        let mut transmittance = Vec3::new(1.);
         let mut record;
 
         loop {
             record = HitRecord::init_with_distance(distance + 0.1);
             if !self.intersect_obj(ray, &mut record, &self.bvh_tree[0]) {
-                return (-1., Vec3::zero());
+                return (Vec3::new(-1.), Vec3::zero());
             }
 
             if record.id == light_id && dot(ray.dir, record.normal) < 0. {
                 if has_medium {
-                    transmittance *= (-record.distance * now_coeff).exp();
+                    transmittance =
+                        transmittance * pdfs_sample_distance(&now_coeff, record.distance);
                 }
-                //println!("{}, {}", transmittance, coeff_ex);
+
                 return (transmittance, record.color);
             }
 
             if let Bxdf::NoSurface = record.bxdf {
                 if has_medium {
-                    transmittance *= (-record.distance * now_coeff).exp();
+                    transmittance =
+                        transmittance * pdfs_sample_distance(&now_coeff, record.distance);
                 }
                 has_medium = !has_medium;
                 now_coeff = record.medium.coeff_ex;
                 ray.org = record.hitpoint + 0.00001 * ray.dir;
             } else {
-                return (-1., Vec3::zero());
+                return (Vec3::new(-1.), Vec3::zero());
             }
         }
     }
 
-    pub fn nee(&self, org: &Point3, coeff_ex: f64, rand: &mut XorRand) -> NeeResult {
+    pub fn nee(&self, org: &Point3, coeff_ex: &Vec3, rand: &mut XorRand) -> NeeResult {
         let mut nee_result = NeeResult::new();
         let size = self.lights.len() as u32;
         if size == 0 {
@@ -141,7 +143,7 @@ impl<'a> Scene<'a> {
 
         let (transmittance, emission) =
             self.calc_transmittance(&mut ray, coeff_ex, light.get_obj_id(), distance);
-        if transmittance < 0. {
+        if transmittance.0 < 0. {
             return nee_result;
         }
 

@@ -3,7 +3,7 @@ use crate::{
     material::{
         composite::{comp_specular_brdf, sample_brdf},
         diffuse::*,
-        medium::{Medium, pdf_phase, sample_phase},
+        medium::{Medium, pdf_phase, pdfs_sample_distance, sample_phase, sample_rgb},
         microfacet::*,
     },
     math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin, multiply},
@@ -40,8 +40,8 @@ impl<'a> Pathtracing<'a> {
             medium_stack: vec![(
                 1.,
                 &Medium {
-                    coeff_sc: -1.,
-                    coeff_ex: -1.,
+                    coeff_sc: Vec3(-1., -1., -1.),
+                    coeff_ex: Vec3(-1., -1., -1.),
                     g: 0.,
                 },
             )],
@@ -59,7 +59,7 @@ impl<'a> Pathtracing<'a> {
         }
     }
 
-    fn get_coeff_ex(&self) -> f64 {
+    fn get_coeff_ex(&self) -> Vec3 {
         self.medium_stack.last().unwrap().1.coeff_ex
     }
 
@@ -120,7 +120,7 @@ impl<'a> Pathtracing<'a> {
         self.now_ray = Ray { org, dir };
 
         self.throughput = multiply(self.throughput, self.record.color);
-        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
+        let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_dir_cos = fmax(dot(self.orienting_normal, nee_result.dir), 0.);
             let mis_weight = 1. / (nee_result.pdf + nee_dir_cos * PI_INV);
@@ -187,7 +187,7 @@ impl<'a> Pathtracing<'a> {
         let normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &wm);
         let vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
 
-        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
+        let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_wm = (nee_result.dir + wo).normalize();
             let nee_normal_dist = ggx_normal_df(ax, ay, &self.orienting_normal, &nee_wm);
@@ -244,7 +244,7 @@ impl<'a> Pathtracing<'a> {
             vndf =
                 g1_wo * normal_dist * dot(wo, wm).abs() * j / dot(wo, self.orienting_normal).abs();
 
-            let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
+            let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
             if nee_result.pdf != 0. {
                 let nee_wm = -(wo * ior_to + nee_result.dir * ior_from).normalize();
 
@@ -280,7 +280,7 @@ impl<'a> Pathtracing<'a> {
             self.now_ray = Ray { org, dir: wi };
             vndf = g1_wo * normal_dist / (4. * dot(wo, self.orienting_normal).abs());
 
-            let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
+            let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
             if nee_result.pdf != 0. {
                 let nee_wm = (nee_result.dir + wo).normalize();
                 let nee_normal_dist = ggx_normal_df(a, a, &self.orienting_normal, &nee_wm);
@@ -332,7 +332,7 @@ impl<'a> Pathtracing<'a> {
         }
         self.now_ray = Ray { org, dir: wi };
 
-        let nee_result = scene.nee(&org, self.get_coeff_ex(), rand);
+        let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_pdf_diffuse = pdf_cos_hemisphere(&nee_result.dir, &self.orienting_normal);
             let nee_wm = (wo + nee_result.dir).normalize();
@@ -389,15 +389,22 @@ impl<'a> Pathtracing<'a> {
 
     pub fn freepath_sample(&mut self, scene: &'a Scene, rand: &mut XorRand) -> bool {
         let (_, medium) = self.medium_stack.last().unwrap();
-        let dist = -1. * (rand.next01()).ln() / medium.coeff_ex;
+
+        let pdf_rgb = self.throughput / self.throughput.sum();
+        let sampled_coeff_ex = sample_rgb(&pdf_rgb, &medium.coeff_ex, rand);
+        let dist = -1. * (rand.next01()).ln() / sampled_coeff_ex;
+        let pdf_sample_dist = pdfs_sample_distance(&medium.coeff_ex, dist);
+
+        let mis_weight = pdf_sample_dist / multiply(pdf_sample_dist, pdf_rgb).sum();
+        self.throughput = self.throughput * mis_weight;
 
         self.record = HitRecord::init_with_distance(dist);
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
-            self.throughput = self.throughput * (medium.coeff_sc / medium.coeff_ex);
+            self.throughput = multiply(self.throughput, medium.coeff_sc / medium.coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
             let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, medium.g as f64, rand);
 
-            let nee_result = scene.nee(&org, medium.coeff_ex, rand);
+            let nee_result = scene.nee(&org, &medium.coeff_ex, rand);
             if nee_result.pdf != 0. {
                 let nee_hg_pdf = pdf_phase(&nee_result.dir, medium.g as f64, &self.now_ray.dir);
                 let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
@@ -424,7 +431,7 @@ impl<'a> Pathtracing<'a> {
             }
             self.roulette_pdf *= roulette_prob;
 
-            if self.get_coeff_ex() > 0. {
+            if self.get_coeff_ex().0 > 0. {
                 // in medium
                 if !self.freepath_sample(scene, rand) {
                     continue;

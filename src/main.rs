@@ -91,7 +91,7 @@ pub fn cornel_box() {
         Bxdf::NoSurface,
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
-        Medium::new(0.02, 0., 0.8),
+        Medium::new(Vec3::new(0.007), Vec3(0.0025, 0.0006, 0.0001), 0.),
     );
 
     let mut objects = vec![rect0, rect1, rect2, rect3, rect4, rect5, s1, medium];

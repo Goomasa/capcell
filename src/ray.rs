@@ -30,8 +30,8 @@ impl<'a> HitRecord<'a> {
             bxdf: &Bxdf::Lambertian,
             id: -1,
             medium: &Medium {
-                coeff_sc: -1.,
-                coeff_ex: -1.,
+                coeff_sc: Vec3(-1., -1., -1.),
+                coeff_ex: Vec3(-1., -1., -1.),
                 g: 0.,
             },
         }
@@ -46,8 +46,8 @@ impl<'a> HitRecord<'a> {
             bxdf: &Bxdf::Lambertian,
             id: -1,
             medium: &Medium {
-                coeff_sc: -1.,
-                coeff_ex: -1.,
+                coeff_sc: Vec3(-1., -1., -1.),
+                coeff_ex: Vec3(-1., -1., -1.),
                 g: 0.,
             },
         }

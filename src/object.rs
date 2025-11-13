@@ -68,8 +68,8 @@ impl<'a> Object<'a> {
                 max_p: center + Vec3::new(radius),
             },
             medium: Medium {
-                coeff_sc: -1.,
-                coeff_ex: -1.,
+                coeff_sc: Vec3(-1., -1., -1.),
+                coeff_ex: Vec3(-1., -1., -1.),
                 g: 0.,
             },
         }
@@ -117,8 +117,8 @@ impl<'a> Object<'a> {
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium: Medium {
-                coeff_sc: -1.,
-                coeff_ex: -1.,
+                coeff_sc: Vec3(-1., -1., -1.),
+                coeff_ex: Vec3(-1., -1., -1.),
                 g: 0.,
             },
         }
@@ -177,8 +177,8 @@ impl<'a> Object<'a> {
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix_aabb(),
             medium: Medium {
-                coeff_sc: -1.,
-                coeff_ex: -1.,
+                coeff_sc: Vec3(-1., -1., -1.),
+                coeff_ex: Vec3(-1., -1., -1.),
                 g: 0.,
             },
         }

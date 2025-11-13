@@ -1,24 +1,35 @@
 use crate::{
-    math::{EPS, PI, Vec3, cross, dot, fmax},
+    math::{Color, EPS, PI, Vec3, cross, dot, fmax},
     random::XorRand,
 };
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Medium {
-    pub coeff_sc: f64,
-    pub coeff_ex: f64,
+    pub coeff_sc: Color,
+    pub coeff_ex: Color,
     pub g: f32,
 }
 
 #[allow(unused)]
 impl Medium {
-    pub fn new(coeff_sc: f64, coeff_ab: f64, g: f32) -> Self {
+    pub fn new(coeff_sc: Color, coeff_ab: Color, g: f32) -> Self {
+        let coeff_sc = Vec3(
+            fmax(coeff_sc.0, 1e-4),
+            fmax(coeff_sc.1, 1e-4),
+            fmax(coeff_sc.2, 1e-4),
+        );
+
         Medium {
-            coeff_sc: fmax(coeff_sc, 0.01),
+            coeff_sc,
             coeff_ex: coeff_sc + coeff_ab,
             g,
         }
     }
+}
+
+pub fn pdfs_sample_distance(coeff_ex: &Vec3, distance: f64) -> Vec3 {
+    let calc = |c: f64| (-distance * c).exp();
+    Vec3(calc(coeff_ex.0), calc(coeff_ex.1), calc(coeff_ex.2))
 }
 
 pub fn sample_phase(dir: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
@@ -49,4 +60,16 @@ pub fn sample_phase(dir: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
 pub fn pdf_phase(dir: &Vec3, g: f64, prev_dir: &Vec3) -> f64 {
     let dot = dot(*prev_dir, *dir);
     1. / (4. * PI) * (1. - g * g) / (1. + g * g + 2. * g * dot).powf(1.5)
+}
+
+pub fn sample_rgb(pdf: &Vec3, coeff_ex: &Vec3, rand: &mut XorRand) -> f64 {
+    let cdf = Vec3(pdf.0, 1. - pdf.2, 1.);
+    let r = rand.next01();
+    if r < cdf.0 {
+        coeff_ex.0
+    } else if r >= cdf.1 {
+        coeff_ex.2
+    } else {
+        coeff_ex.1
+    }
 }

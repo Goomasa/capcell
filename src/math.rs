@@ -46,10 +46,24 @@ impl Mul<Vec3> for f64 {
     }
 }
 
+impl Mul<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Vec3(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
+    }
+}
+
 impl Div<f64> for Vec3 {
     type Output = Self;
     fn div(self, rhs: f64) -> Self::Output {
         Vec3(self.0 / rhs, self.1 / rhs, self.2 / rhs)
+    }
+}
+
+impl Div<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: Vec3) -> Self::Output {
+        Vec3(self.0 / rhs.0, self.1 / rhs.1, self.2 / rhs.2)
     }
 }
 
@@ -76,6 +90,10 @@ impl Vec3 {
 
     pub fn max_elm(&self) -> f64 {
         fmax(self.0, fmax(self.1, self.2))
+    }
+
+    pub fn sum(&self) -> f64 {
+        self.0 + self.1 + self.2
     }
 }
 
