@@ -1,3 +1,4 @@
+#[allow(unused)]
 use crate::{
     camera::{LensModel, PinholeModel},
     material::{bxdf::Bxdf, medium::Medium},
@@ -26,7 +27,7 @@ mod texture;
 pub fn cornel_box() {
     let obj_id = &mut FreshId::new();
 
-    let rect0 = Object::set_rect(
+    let floor = Object::set_rect(
         Axis::Y(true),
         Vec3(-25., 0., 0.),
         Vec3(25., 0., -50.),
@@ -34,7 +35,7 @@ pub fn cornel_box() {
         Texture::set_checker(10, Vec3::new(0.1), Vec3::new(0.99)),
         obj_id,
     );
-    let rect1 = Object::set_rect(
+    let ceil = Object::set_rect(
         Axis::Y(true),
         Vec3(-25., 50., 0.),
         Vec3(25., 50., -50.),
@@ -42,7 +43,7 @@ pub fn cornel_box() {
         Texture::set_solid(Vec3::new(0.99)),
         obj_id,
     );
-    let rect2 = Object::set_rect(
+    let left = Object::set_rect(
         Axis::X(true),
         Vec3(-25., 0., 0.),
         Vec3(-25., 50., -50.),
@@ -50,7 +51,7 @@ pub fn cornel_box() {
         Texture::set_solid(Vec3(1., 0.1, 0.1)),
         obj_id,
     );
-    let rect3 = Object::set_rect(
+    let right = Object::set_rect(
         Axis::X(true),
         Vec3(25., 0., 0.),
         Vec3(25., 50., -50.),
@@ -58,16 +59,16 @@ pub fn cornel_box() {
         Texture::set_solid(Vec3(0.1, 1., 0.1)),
         obj_id,
     );
-    let rect4 = Object::set_rect(
+    let back = Object::set_rect(
         Axis::Z(true),
         Vec3(-25., 0., -50.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Texture::set_solid(Vec3::new(0.99)),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
-    let rect5 = Object::set_rect(
+    let light = Object::set_rect(
         Axis::Y(false),
         Vec3(-5., 49.5, -20.),
         Vec3(5., 49.5, -30.),
@@ -94,7 +95,7 @@ pub fn cornel_box() {
         Medium::new(Vec3::new(0.007), Vec3(0.0025, 0.0006, 0.0001), 0.),
     );
 
-    let mut objects = vec![rect0, rect1, rect2, rect3, rect4, rect5, s1, medium];
+    let mut objects = vec![floor, ceil, left, right, back, light, s1, medium];
 
     let camera = LensModel::new(
         600,
@@ -187,8 +188,8 @@ fn spheres() {
         4,
     );
 
-    let (data, width, height) = load_hdr("assets/kloofendal_48d_partly_cloudy_puresky_1k.hdr");
-    let scene = Scene::new(&mut objects, Texture::set_image(&data, width, height));
+    //let (data, width, height) = load_hdr("assets/kloofendal_48d_partly_cloudy_puresky_1k.hdr");
+    let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
 
     let _ = render(&camera, &scene);
 }

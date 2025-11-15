@@ -60,6 +60,7 @@ impl<'a> Texture<'a> {
     }
 }
 
+#[allow(unused)]
 pub fn load_hdr(path: &str) -> (Vec<Color>, usize, usize) {
     // return (pixel_data, width, height)
     let file = File::open(path).expect("failed to open hdr");

@@ -115,7 +115,7 @@ impl<'a> Object<'a> {
             bxdf,
             texture,
             obj_id: freshid.gen_id(),
-            bbox: AABB { min_p, max_p }.fix_aabb(),
+            bbox: AABB { min_p, max_p }.fix(),
             medium: Medium {
                 coeff_sc: Vec3(-1., -1., -1.),
                 coeff_ex: Vec3(-1., -1., -1.),
@@ -143,7 +143,7 @@ impl<'a> Object<'a> {
             bxdf,
             texture,
             obj_id: freshid.gen_id(),
-            bbox: AABB { min_p, max_p }.fix_aabb(),
+            bbox: AABB { min_p, max_p }.fix(),
             medium,
         }
     }
@@ -175,7 +175,7 @@ impl<'a> Object<'a> {
             bxdf,
             texture,
             obj_id: freshid.gen_id(),
-            bbox: AABB { min_p, max_p }.fix_aabb(),
+            bbox: AABB { min_p, max_p }.fix(),
             medium: Medium {
                 coeff_sc: Vec3(-1., -1., -1.),
                 coeff_ex: Vec3(-1., -1., -1.),
@@ -212,7 +212,7 @@ impl<'a> Object<'a> {
             bxdf,
             texture,
             obj_id: freshid.gen_id(),
-            bbox: AABB { min_p, max_p }.fix_aabb(),
+            bbox: AABB { min_p, max_p }.fix(),
             medium,
         }
     }
@@ -321,7 +321,7 @@ impl<'a> Object<'a> {
         }
     }
 
-    pub fn get_obj_id(&self) -> i32 {
+    pub fn get_id(&self) -> i32 {
         match self {
             Object::Sphere { obj_id: id, .. }
             | Object::Rectangle { obj_id: id, .. }

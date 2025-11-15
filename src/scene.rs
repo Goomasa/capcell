@@ -35,7 +35,7 @@ pub struct Scene<'a> {
 
 impl<'a> Scene<'a> {
     pub fn new(objs: &'a mut Vec<Object>, back: Texture<'a>) -> Self {
-        objs.sort_by(|o1, o2| o1.get_obj_id().cmp(&o2.get_obj_id()));
+        objs.sort_by(|o1, o2| o1.get_id().cmp(&o2.get_id()));
         objs.shrink_to_fit();
         let lights = objs
             .iter()
@@ -142,7 +142,7 @@ impl<'a> Scene<'a> {
         let mut ray = Ray { org: *org, dir };
 
         let (transmittance, emission) =
-            self.calc_transmittance(&mut ray, coeff_ex, light.get_obj_id(), distance);
+            self.calc_transmittance(&mut ray, coeff_ex, light.get_id(), distance);
         if transmittance.0 < 0. {
             return nee_result;
         }

@@ -102,7 +102,7 @@ impl AABB {
         2. * ((diff.0 + diff.1) * diff.2 + diff.0 * diff.1)
     }
 
-    pub fn fix_aabb(&self) -> AABB {
+    pub fn fix(&self) -> AABB {
         let mut max_p = self.max_p;
         let mut min_p = self.min_p;
         if self.max_p.0 == self.min_p.0 {

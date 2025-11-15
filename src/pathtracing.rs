@@ -6,7 +6,7 @@ use crate::{
         medium::{Medium, pdf_phase, pdfs_sample_distance, sample_phase, sample_rgb},
         microfacet::*,
     },
-    math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin, multiply},
+    math::{Color, EPS, INF, PI_INV, Vec3, dot, fmax, fmin},
     object::sphere_uv,
     random::XorRand,
     ray::{HitRecord, Ray},
@@ -96,8 +96,8 @@ impl<'a> Pathtracing<'a> {
         self.record = HitRecord::new();
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
             let (u, v) = sphere_uv(&Vec3::zero(), &self.now_ray.dir);
-            self.rad = self.rad
-                + multiply(self.throughput, scene.background.get_color(u, v)) / self.roulette_pdf;
+            self.rad =
+                self.rad + self.throughput * scene.background.get_color(u, v) / self.roulette_pdf;
             return false;
         }
         true
@@ -105,12 +105,12 @@ impl<'a> Pathtracing<'a> {
 
     fn trace_light(&mut self, scene: &Scene) {
         if self.pt_sample_pdf < 0. {
-            self.rad = self.rad + multiply(self.throughput, self.record.color) / self.roulette_pdf;
+            self.rad = self.rad + self.throughput * self.record.color / self.roulette_pdf;
         } else {
             let nee_pdf = scene.pdf_sample_obj(&self.now_ray.org, &self.record);
             let mis_weight = self.pt_sample_pdf / (self.pt_sample_pdf + nee_pdf);
-            self.rad = self.rad
-                + multiply(self.throughput, self.record.color) * mis_weight / self.roulette_pdf;
+            self.rad =
+                self.rad + self.throughput * self.record.color * mis_weight / self.roulette_pdf;
         }
     }
 
@@ -119,13 +119,14 @@ impl<'a> Pathtracing<'a> {
         let org = self.record.hitpoint + self.orienting_normal * 0.00001;
         self.now_ray = Ray { org, dir };
 
-        self.throughput = multiply(self.throughput, self.record.color);
+        self.throughput = self.throughput * self.record.color;
         let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_dir_cos = fmax(dot(self.orienting_normal, nee_result.dir), 0.);
             let mis_weight = 1. / (nee_result.pdf + nee_dir_cos * PI_INV);
             self.rad = self.rad
-                + multiply(self.throughput, nee_result.color)
+                + self.throughput
+                    * nee_result.color
                     * PI_INV
                     * nee_dir_cos
                     * mis_weight
@@ -141,7 +142,7 @@ impl<'a> Pathtracing<'a> {
         self.now_ray = Ray { org, dir };
 
         let fresnel = fresnel_color(&self.record.color, &dir, &self.orienting_normal);
-        self.throughput = multiply(self.throughput, fresnel);
+        self.throughput = self.throughput * fresnel;
         self.pt_sample_pdf = INF;
     }
 
@@ -150,7 +151,7 @@ impl<'a> Pathtracing<'a> {
         let (ior_from, ior_to) = self.get_ior(ior, into);
         //let (ior_from, ior_to) = if into { (ior, 1.) } else { (1., ior) };
 
-        let (is_refract, wi, reflectance) = refraction_dir(
+        let (is_refract, wi, _) = refraction_dir(
             ior_from,
             ior_to,
             &self.orienting_normal,
@@ -162,13 +163,13 @@ impl<'a> Pathtracing<'a> {
             self.update_medium_stack(into, ior, medium);
             let org = self.record.hitpoint - 0.00001 * self.orienting_normal;
             self.now_ray = Ray { org, dir: wi };
-            self.throughput = multiply(self.throughput, self.record.color) * (1. - reflectance);
-            self.roulette_pdf *= 1. - reflectance;
+            self.throughput = self.throughput * self.record.color;
+            //self.roulette_pdf *= 1. - reflectance;
         } else {
             let org = self.record.hitpoint + 0.00001 * self.orienting_normal;
             self.now_ray = Ray { org, dir: wi };
-            self.throughput = multiply(self.throughput, self.record.color) * reflectance;
-            self.roulette_pdf *= reflectance;
+            self.throughput = self.throughput * self.record.color;
+            //self.roulette_pdf *= reflectance;
         }
 
         self.pt_sample_pdf = INF;
@@ -199,7 +200,9 @@ impl<'a> Pathtracing<'a> {
             let brdf = nee_fresnel * nee_vndf * nee_g1_wi
                 / dot(nee_result.dir, self.orienting_normal).abs();
             self.rad = self.rad
-                + multiply(nee_result.color, multiply(self.throughput, brdf))
+                + nee_result.color
+                    * self.throughput
+                    * brdf
                     * dot(nee_result.dir, self.orienting_normal)
                     * mis_weight
                     * nee_result.transmittance
@@ -207,7 +210,7 @@ impl<'a> Pathtracing<'a> {
         }
 
         let g1_wi = shadow_mask_fn(ax, ay, &wi, &self.orienting_normal);
-        self.throughput = multiply(self.throughput, fresnel * g1_wi);
+        self.throughput = self.throughput * fresnel * g1_wi;
         if ax == 0. || ay == 0. {
             self.pt_sample_pdf = INF;
         } else {
@@ -262,18 +265,17 @@ impl<'a> Pathtracing<'a> {
                         * nee_g1_wi
                         * (dot(nee_result.dir, nee_wm) / dot(wo, nee_wm)).abs();
                     self.rad = self.rad
-                        + multiply(
-                            nee_result.color,
-                            multiply(self.record.color, self.throughput),
-                        ) * btdf_
+                        + nee_result.color
+                            * self.record.color
+                            * self.throughput
+                            * btdf_
                             * mis_weight
                             * nee_result.transmittance
                             / self.roulette_pdf;
                 }
             }
 
-            self.throughput =
-                multiply(self.throughput, self.record.color) * g1_wi * (1. - reflectance);
+            self.throughput = self.throughput * self.record.color * g1_wi * (1. - reflectance);
             self.roulette_pdf *= 1. - reflectance;
         } else {
             let org = self.record.hitpoint + self.orienting_normal * 0.00001;
@@ -293,14 +295,16 @@ impl<'a> Pathtracing<'a> {
                 let brdf = nee_fresnel * nee_vndf * nee_g1_wi
                     / dot(nee_result.dir, self.orienting_normal).abs();
                 self.rad = self.rad
-                    + multiply(nee_result.color, multiply(self.throughput, brdf))
+                    + nee_result.color
+                        * self.throughput
+                        * brdf
                         * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
                         * nee_result.transmittance
                         / self.roulette_pdf;
             }
 
-            self.throughput = multiply(self.throughput, self.record.color) * g1_wi * reflectance;
+            self.throughput = self.throughput * self.record.color * g1_wi * reflectance;
             self.roulette_pdf *= reflectance;
         }
 
@@ -340,10 +344,11 @@ impl<'a> Pathtracing<'a> {
                 let pdf_pt = nee_pdf_diffuse;
                 let mis_weight = prob / (pdf_pt + nee_result.pdf);
                 self.rad = self.rad
-                    + multiply(
-                        nee_result.color,
-                        multiply(self.throughput, *basecolor * PI_INV),
-                    ) * dot(nee_result.dir, self.orienting_normal)
+                    + nee_result.color
+                        * self.throughput
+                        * *basecolor
+                        * PI_INV
+                        * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
                         * nee_result.transmittance
                         / self.roulette_pdf;
@@ -359,7 +364,9 @@ impl<'a> Pathtracing<'a> {
                 let pdf_pt = nee_pdf_specular;
                 let mis_weight = 1. / (pdf_pt + nee_result.pdf);
                 self.rad = self.rad
-                    + multiply(nee_result.color, multiply(self.throughput, nee_brdf))
+                    + nee_result.color
+                        * self.throughput
+                        * nee_brdf
                         * dot(nee_result.dir, self.orienting_normal)
                         * mis_weight
                         * nee_result.transmittance
@@ -378,12 +385,10 @@ impl<'a> Pathtracing<'a> {
 
         if is_diffuse {
             self.throughput =
-                multiply(self.throughput, brdf) * dot(wi, self.orienting_normal) * prob
-                    / self.pt_sample_pdf;
+                self.throughput * brdf * dot(wi, self.orienting_normal) * prob / self.pt_sample_pdf;
         } else {
-            self.throughput =
-                multiply(self.throughput, brdf) * dot(wi, self.orienting_normal) * (1. - prob)
-                    / self.pt_sample_pdf;
+            self.throughput = self.throughput * brdf * dot(wi, self.orienting_normal) * (1. - prob)
+                / self.pt_sample_pdf;
         }
     }
 
@@ -395,12 +400,12 @@ impl<'a> Pathtracing<'a> {
         let dist = -1. * (rand.next01()).ln() / sampled_coeff_ex;
         let pdf_sample_dist = pdfs_sample_distance(&medium.coeff_ex, dist);
 
-        let mis_weight = pdf_sample_dist / multiply(pdf_sample_dist, pdf_rgb).sum();
+        let mis_weight = pdf_sample_dist / (pdf_sample_dist * pdf_rgb).sum();
         self.throughput = self.throughput * mis_weight;
 
         self.record = HitRecord::init_with_distance(dist);
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
-            self.throughput = multiply(self.throughput, medium.coeff_sc / medium.coeff_ex);
+            self.throughput = self.throughput * (medium.coeff_sc / medium.coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
             let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, medium.g as f64, rand);
 
@@ -409,7 +414,8 @@ impl<'a> Pathtracing<'a> {
                 let nee_hg_pdf = pdf_phase(&nee_result.dir, medium.g as f64, &self.now_ray.dir);
                 let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
                 self.rad = self.rad
-                    + multiply(self.throughput, nee_result.color)
+                    + self.throughput
+                        * nee_result.color
                         * nee_hg_pdf
                         * nee_result.transmittance
                         * mis_weight

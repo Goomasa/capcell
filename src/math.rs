@@ -109,10 +109,6 @@ pub fn cross(v: Vec3, w: Vec3) -> Vec3 {
     )
 }
 
-pub fn multiply(v: Vec3, w: Vec3) -> Vec3 {
-    Vec3(v.0 * w.0, v.1 * w.1, v.2 * w.2)
-}
-
 pub fn fmax(a: f64, b: f64) -> f64 {
     if a > b { a } else { b }
 }
@@ -135,4 +131,8 @@ pub fn gamma(v: Color) -> (u32, u32, u32) {
     let g = (v.1.clamp(0., 1.).powf(1. / 2.2) * 255.) as u32;
     let b = (v.2.clamp(0., 1.).powf(1. / 2.2) * 255.) as u32;
     (r, g, b)
+}
+
+pub fn lerp_vec3(k: f64, v: &Vec3, w: &Vec3) -> Color {
+    *v * (1. - k) + *w * k
 }

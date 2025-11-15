@@ -108,12 +108,12 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
             let left_node = BvhNode::new(
                 AABB::entire_box(&left),
                 (-1, -1),
-                left.iter().map(|obj| obj.get_obj_id() as usize).collect(),
+                left.iter().map(|obj| obj.get_id() as usize).collect(),
             );
             let right_node = BvhNode::new(
                 AABB::entire_box(&right),
                 (-1, -1),
-                right.iter().map(|obj| obj.get_obj_id() as usize).collect(),
+                right.iter().map(|obj| obj.get_id() as usize).collect(),
             );
 
             tree[idx].children = (tree.len() as i32, (tree.len() + 1) as i32);
