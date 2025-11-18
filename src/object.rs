@@ -339,7 +339,7 @@ impl<'a> Object<'a> {
 
     pub fn get_area(&self) -> f64 {
         match self {
-            Object::Sphere { radius, .. } => 2. * PI * radius,
+            Object::Sphere { radius, .. } => 4. * PI * radius * radius,
             Object::Rectangle {
                 axis, min_p, max_p, ..
             } => match axis {

@@ -31,6 +31,7 @@ pub struct LensModel {
     sspp: u32, //super samples per pixel
 }
 
+#[allow(unused)]
 impl LensModel {
     pub fn new(
         px_w: u32,

@@ -120,6 +120,7 @@ impl<'a> Pathtracing<'a> {
         self.now_ray = Ray { org, dir };
 
         self.throughput = self.throughput * self.record.color;
+
         let nee_result = scene.nee(&org, &self.get_coeff_ex(), rand);
         if nee_result.pdf != 0. {
             let nee_dir_cos = fmax(dot(self.orienting_normal, nee_result.dir), 0.);
@@ -133,6 +134,7 @@ impl<'a> Pathtracing<'a> {
                     * nee_result.transmittance
                     / self.roulette_pdf;
         }
+
         self.pt_sample_pdf = pdf_cos_hemisphere(&dir, &self.orienting_normal);
     }
 
@@ -397,7 +399,7 @@ impl<'a> Pathtracing<'a> {
 
         let pdf_rgb = self.throughput / self.throughput.sum();
         let sampled_coeff_ex = sample_rgb(&pdf_rgb, &medium.coeff_ex, rand);
-        let dist = -1. * (rand.next01()).ln() / sampled_coeff_ex;
+        let dist = -1. * (1. - rand.next01()).ln() / sampled_coeff_ex;
         let pdf_sample_dist = pdfs_sample_distance(&medium.coeff_ex, dist);
 
         let mis_weight = pdf_sample_dist / (pdf_sample_dist * pdf_rgb).sum();
@@ -407,11 +409,11 @@ impl<'a> Pathtracing<'a> {
         if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
             self.throughput = self.throughput * (medium.coeff_sc / medium.coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
-            let (dir, hg_pdf) = sample_phase(&self.now_ray.dir, medium.g as f64, rand);
+            let (dir, hg_pdf) = sample_phase(&-self.now_ray.dir, medium.g as f64, rand);
 
             let nee_result = scene.nee(&org, &medium.coeff_ex, rand);
             if nee_result.pdf != 0. {
-                let nee_hg_pdf = pdf_phase(&nee_result.dir, medium.g as f64, &self.now_ray.dir);
+                let nee_hg_pdf = pdf_phase(&nee_result.dir, medium.g as f64, &-self.now_ray.dir);
                 let mis_weight = 1. / (nee_result.pdf + nee_hg_pdf);
                 self.rad = self.rad
                     + self.throughput

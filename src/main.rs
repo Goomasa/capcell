@@ -1,3 +1,4 @@
+use crate::polygon::load_obj;
 #[allow(unused)]
 use crate::{
     camera::{LensModel, PinholeModel},
@@ -17,6 +18,7 @@ mod material;
 mod math;
 mod object;
 mod pathtracing;
+mod polygon;
 mod random;
 mod ray;
 mod render;
@@ -64,7 +66,7 @@ pub fn cornel_box() {
         Vec3(-25., 0., -50.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Texture::set_solid(Vec3::new(1.)),
+        Texture::set_solid(Vec3::new(0.1)),
         obj_id,
     );
 
@@ -73,7 +75,7 @@ pub fn cornel_box() {
         Vec3(-5., 49.5, -20.),
         Vec3(5., 49.5, -30.),
         Bxdf::Light,
-        Texture::set_solid(Vec3::new(45.)),
+        Texture::set_solid(Vec3::new(60.)),
         obj_id,
     );
 
@@ -92,7 +94,7 @@ pub fn cornel_box() {
         Bxdf::NoSurface,
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
-        Medium::new(Vec3::new(0.007), Vec3(0.0025, 0.0006, 0.0001), 0.),
+        Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.002, 0.0002), 0.7),
     );
 
     let mut objects = vec![floor, ceil, left, right, back, light, s1, medium];
@@ -194,10 +196,43 @@ fn spheres() {
     let _ = render(&camera, &scene);
 }
 
+#[allow(unused)]
+fn obj() {
+    let obj_id = &mut FreshId::new();
+    let mut objects = load_obj("assets/voxels.obj", 10., obj_id);
+
+    let light = Object::set_rect(
+        Axis::Y(false),
+        Vec3(-15., 50., -10.),
+        Vec3(15., 50., -30.),
+        Bxdf::Light,
+        Texture::set_solid(Vec3::new(10.)),
+        obj_id,
+    );
+
+    objects.push(light);
+
+    let camera = PinholeModel::new(
+        Vec3(0., 10., 30.),
+        600,
+        400,
+        40.,
+        Vec3(0., 0., -1.).normalize(),
+        30.,
+        2,
+        2,
+    );
+
+    let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::new(0.3)));
+
+    let _ = render(&camera, &scene);
+}
+
 fn main() {
     let start = std::time::Instant::now();
     cornel_box();
     //spheres();
+    //obj();
     let end = start.elapsed();
     println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 }

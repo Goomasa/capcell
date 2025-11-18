@@ -32,8 +32,8 @@ pub fn pdfs_sample_distance(coeff_ex: &Vec3, distance: f64) -> Vec3 {
     Vec3(calc(coeff_ex.0), calc(coeff_ex.1), calc(coeff_ex.2))
 }
 
-pub fn sample_phase(dir: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
-    let w = *dir;
+pub fn sample_phase(wo: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
+    let w = *wo;
     let u = if w.0.abs() > EPS {
         cross(Vec3(0., 1., 0.), w).normalize()
     } else {
@@ -57,8 +57,8 @@ pub fn sample_phase(dir: &Vec3, g: f64, rand: &mut XorRand) -> (Vec3, f64) {
     )
 }
 
-pub fn pdf_phase(dir: &Vec3, g: f64, prev_dir: &Vec3) -> f64 {
-    let dot = dot(*prev_dir, *dir);
+pub fn pdf_phase(wi: &Vec3, g: f64, wo: &Vec3) -> f64 {
+    let dot = dot(*wo, *wi);
     1. / (4. * PI) * (1. - g * g) / (1. + g * g + 2. * g * dot).powf(1.5)
 }
 
