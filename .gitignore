@@ -1,4 +1,6 @@
 /target
 render.bmp
 reference.bmp
-/assets
+assets/*
+!/assets/*.obj
+!/assets/*.mtl

@@ -22,6 +22,8 @@ cargo run --release
 
 ## Gallery
 
+<img src="images/water.jpg" width=60% height=60%/>
+
 ## References
 
 - Brian Karis, Epic Games, Real Shading in Unreal Engine 4, 2013

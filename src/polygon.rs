@@ -1,9 +1,15 @@
 use tobj::Model;
 
-use crate::{material::bxdf::Bxdf, math::Vec3, object::Object, random::FreshId, texture::Texture};
+use crate::{
+    material::{bxdf::Bxdf, medium::Medium},
+    math::Vec3,
+    object::Object,
+    random::FreshId,
+    texture::Texture,
+};
 
 #[allow(unused)]
-pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object<'a>> {
+pub fn load_obj<'a>(path: &str, scale: f64, bxdf: Bxdf, freshid: &mut FreshId) -> Vec<Object<'a>> {
     let load_result = tobj::load_obj(path, &tobj::LoadOptions::default());
     if let Err(_) = load_result {
         return Vec::new();
@@ -12,13 +18,18 @@ pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object
     let mut objs = Vec::new();
     let models = load_result.unwrap().0;
     for model in models.iter() {
-        objs.append(&mut load_obj_model(model, scale, freshid));
+        objs.append(&mut load_obj_model(model, scale, bxdf, freshid));
     }
 
     objs
 }
 
-fn load_obj_model<'a>(model: &Model, scale: f64, freshid: &mut FreshId) -> Vec<Object<'a>> {
+fn load_obj_model<'a>(
+    model: &Model,
+    scale: f64,
+    bxdf: Bxdf,
+    freshid: &mut FreshId,
+) -> Vec<Object<'a>> {
     let mesh = &model.mesh;
     let mut verts = Vec::new();
     for i in 0..model.mesh.positions.len() / 3 {
@@ -33,13 +44,15 @@ fn load_obj_model<'a>(model: &Model, scale: f64, freshid: &mut FreshId) -> Vec<O
         let v1 = verts[mesh.indices[i * 3] as usize];
         let v2 = verts[mesh.indices[i * 3 + 1] as usize];
         let v3 = verts[mesh.indices[i * 3 + 2] as usize];
-        let obj = Object::set_tri(
+
+        let obj = Object::set_tri_with_medium(
             v1,
             v2,
             v3,
-            Bxdf::Lambertian,
-            Texture::set_solid(Vec3(0.1, 0.1, 1.)),
+            bxdf,
+            Texture::set_solid(Vec3::new(0.7)),
             freshid,
+            Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.002, 0.0002), 0.7),
         );
         objs.push(obj);
     }

@@ -3,7 +3,6 @@ use crate::{
     random::XorRand,
 };
 
-#[derive(Clone, Copy)]
 pub struct Medium {
     pub coeff_sc: Color,
     pub coeff_ex: Color,

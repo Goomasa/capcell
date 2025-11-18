@@ -34,7 +34,7 @@ pub fn cornel_box() {
         Vec3(-25., 0., 0.),
         Vec3(25., 0., -50.),
         Bxdf::Lambertian,
-        Texture::set_checker(10, Vec3::new(0.1), Vec3::new(0.99)),
+        Texture::set_checker(10, Vec3::new(0.1), Vec3::new(1.)),
         obj_id,
     );
     let ceil = Object::set_rect(
@@ -42,7 +42,7 @@ pub fn cornel_box() {
         Vec3(-25., 50., 0.),
         Vec3(25., 50., -50.),
         Bxdf::Lambertian,
-        Texture::set_solid(Vec3::new(0.99)),
+        Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
     let left = Object::set_rect(
@@ -70,34 +70,36 @@ pub fn cornel_box() {
         obj_id,
     );
 
-    let light = Object::set_rect(
-        Axis::Y(false),
-        Vec3(-5., 49.5, -20.),
-        Vec3(5., 49.5, -30.),
+    let l1 = Object::set_rect(
+        Axis::X(false),
+        Vec3(24.5, 20., -20.),
+        Vec3(24.5, 30., -30.),
         Bxdf::Light,
-        Texture::set_solid(Vec3::new(60.)),
+        Texture::set_solid(Vec3(80., 80., 70.)),
         obj_id,
     );
 
     let s1 = Object::set_sphere(
-        Vec3(10., 7., -15.),
-        7.,
-        Bxdf::MicroBrdf { ax: 0.1, ay: 0.5 },
+        Vec3(10., 5., -15.),
+        5.,
+        Bxdf::MicroBrdf { ax: 0.5, ay: 0.1 },
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
     );
 
-    let medium = Object::set_rect_with_medium(
-        Axis::Z(true),
-        Vec3(-25., 0., 0.1),
-        Vec3(25., 50., 0.1),
-        Bxdf::NoSurface,
-        Texture::set_solid(Vec3::new(1.)),
+    let mut objects = load_obj(
+        "assets/water-surface.obj",
+        1.,
+        Bxdf::IdealGlass { ior: 1.334 },
         obj_id,
-        Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.002, 0.0002), 0.7),
     );
-
-    let mut objects = vec![floor, ceil, left, right, back, light, s1, medium];
+    objects.append(&mut vec![floor, ceil, left, right, back, l1, s1]);
+    objects.append(&mut load_obj(
+        "assets/cuboid.obj",
+        1.,
+        Bxdf::Lambertian,
+        obj_id,
+    ));
 
     let camera = LensModel::new(
         600,
@@ -199,7 +201,7 @@ fn spheres() {
 #[allow(unused)]
 fn obj() {
     let obj_id = &mut FreshId::new();
-    let mut objects = load_obj("assets/voxels.obj", 10., obj_id);
+    let mut objects = load_obj("assets/voxels.obj", 10., Bxdf::Lambertian, obj_id);
 
     let light = Object::set_rect(
         Axis::Y(false),
