@@ -67,11 +67,7 @@ impl<'a> Object<'a> {
                 min_p: center - Vec3::new(radius),
                 max_p: center + Vec3::new(radius),
             },
-            medium: Medium {
-                coeff_sc: Vec3(-1., -1., -1.),
-                coeff_ex: Vec3(-1., -1., -1.),
-                g: 0.,
-            },
+            medium: Medium::no_medium(),
         }
     }
 
@@ -116,11 +112,7 @@ impl<'a> Object<'a> {
             texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
-            medium: Medium {
-                coeff_sc: Vec3(-1., -1., -1.),
-                coeff_ex: Vec3(-1., -1., -1.),
-                g: 0.,
-            },
+            medium: Medium::no_medium(),
         }
     }
 
@@ -176,11 +168,7 @@ impl<'a> Object<'a> {
             texture,
             obj_id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
-            medium: Medium {
-                coeff_sc: Vec3(-1., -1., -1.),
-                coeff_ex: Vec3(-1., -1., -1.),
-                g: 0.,
-            },
+            medium: Medium::no_medium(),
         }
     }
 
@@ -194,6 +182,39 @@ impl<'a> Object<'a> {
         medium: Medium,
     ) -> Object<'a> {
         let normal = cross(q - p, r - p).normalize();
+        let min_p = Vec3(
+            fmin(p.0, fmin(q.0, r.0)),
+            fmin(p.1, fmin(q.1, r.1)),
+            fmin(p.2, fmin(q.2, r.2)),
+        );
+        let max_p = Vec3(
+            fmax(p.0, fmax(q.0, r.0)),
+            fmax(p.1, fmax(q.1, r.1)),
+            fmax(p.2, fmax(q.2, r.2)),
+        );
+        Object::Triangle {
+            p,
+            pq: q - p,
+            pr: r - p,
+            normal,
+            bxdf,
+            texture,
+            obj_id: freshid.gen_id(),
+            bbox: AABB { min_p, max_p }.fix(),
+            medium,
+        }
+    }
+
+    pub fn set_tri_with_normal(
+        p: Point3,
+        q: Point3,
+        r: Point3,
+        normal: Vec3,
+        bxdf: Bxdf,
+        texture: Texture<'a>,
+        freshid: &mut FreshId,
+        medium: Medium,
+    ) -> Object<'a> {
         let min_p = Vec3(
             fmin(p.0, fmin(q.0, r.0)),
             fmin(p.1, fmin(q.1, r.1)),

@@ -79,7 +79,7 @@ impl<'a> Pathtracing<'a> {
 
     fn roulette_prob(&self, time: u32) -> f64 {
         let mut prob = match self.record.bxdf {
-            Bxdf::Light => 1.,
+            Bxdf::Light(_) => 1.,
             _ => fmin(self.record.color.max_elm(), 1.),
         };
 
@@ -103,14 +103,13 @@ impl<'a> Pathtracing<'a> {
         true
     }
 
-    fn trace_light(&mut self, scene: &Scene) {
+    fn trace_light(&mut self, emission: &Color, scene: &Scene) {
         if self.pt_sample_pdf < 0. {
-            self.rad = self.rad + self.throughput * self.record.color / self.roulette_pdf;
+            self.rad = self.rad + self.throughput * *emission / self.roulette_pdf;
         } else {
             let nee_pdf = scene.pdf_sample_obj(&self.now_ray.org, &self.record);
             let mis_weight = self.pt_sample_pdf / (self.pt_sample_pdf + nee_pdf);
-            self.rad =
-                self.rad + self.throughput * self.record.color * mis_weight / self.roulette_pdf;
+            self.rad = self.rad + self.throughput * *emission * mis_weight / self.roulette_pdf;
         }
     }
 
@@ -464,9 +463,9 @@ impl<'a> Pathtracing<'a> {
                     self.update_medium_stack(into, 1., medium);
                     self.now_ray.org = self.record.hitpoint - 0.00001 * self.orienting_normal;
                 }
-                Bxdf::Light => {
+                Bxdf::Light(emission) => {
                     if dot(self.record.normal, self.now_ray.dir) < 0. {
-                        self.trace_light(scene);
+                        self.trace_light(emission, scene);
                     }
                     break;
                 }

@@ -5,7 +5,7 @@ use crate::math::{Color, Vec3, fmax, lerp_vec3};
 pub enum Bxdf {
     NoSurface,
     Lambertian,
-    Light,
+    Light(Color),
     IdealMirror,
     IdealGlass {
         ior: f64,
@@ -30,8 +30,16 @@ pub enum Bxdf {
 impl Bxdf {
     pub fn is_light(&self) -> bool {
         match self {
-            Self::Light => true,
+            Self::Light(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn get_emission(&self) -> Color {
+        if let Bxdf::Light(emission) = self {
+            *emission
+        } else {
+            Vec3::zero()
         }
     }
 

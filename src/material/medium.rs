@@ -3,6 +3,7 @@ use crate::{
     random::XorRand,
 };
 
+#[derive(Clone, Copy)]
 pub struct Medium {
     pub coeff_sc: Color,
     pub coeff_ex: Color,
@@ -22,6 +23,14 @@ impl Medium {
             coeff_sc,
             coeff_ex: coeff_sc + coeff_ab,
             g,
+        }
+    }
+
+    pub fn no_medium() -> Self {
+        Medium {
+            coeff_sc: Vec3::new(-1.),
+            coeff_ex: Vec3::new(-1.),
+            g: -1.,
         }
     }
 }

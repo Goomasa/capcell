@@ -111,7 +111,7 @@ impl<'a> Scene<'a> {
                         transmittance * pdfs_sample_distance(&now_coeff, record.distance);
                 }
 
-                return (transmittance, record.color);
+                return (transmittance, record.bxdf.get_emission());
             }
 
             if let Bxdf::NoSurface = record.bxdf {

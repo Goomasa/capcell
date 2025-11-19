@@ -1,6 +1,6 @@
 # Blender 3.5.1
 # www.blender.org
-mtllib water-surface2.mtl
+mtllib water-surface.mtl
 o 立方体
 v -24.999998 35.000000 -50.000000
 v 25.000002 35.000000 -50.000000
