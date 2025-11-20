@@ -87,7 +87,8 @@ pub fn cornel_box() {
         obj_id,
     );
 
-    let mut objects = load_obj("assets/water-surface.obj", 1., obj_id);
+    //let mut objects = load_obj("assets/water-surface.obj", 1., obj_id);
+    let mut objects = Vec::new();
 
     objects.append(&mut vec![floor, ceil, left, right, back, l1, s1]);
     objects.append(&mut load_obj("assets/cuboid.obj", 1., obj_id));
@@ -190,9 +191,6 @@ fn spheres() {
 }
 
 fn main() {
-    let start = std::time::Instant::now();
     cornel_box();
     //spheres();
-    let end = start.elapsed();
-    println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 }

@@ -20,6 +20,7 @@ pub fn render(camera: &impl Camara, scene: &Scene) {
     let mut buffer = vec![Vec3::new(0.); (pixel_w * pixel_h) as usize];
     let mut img = Image::new(pixel_w, pixel_h);
 
+    let start = std::time::Instant::now();
     buffer
         .par_chunks_mut(pixel_w as usize)
         .enumerate()
@@ -48,6 +49,9 @@ pub fn render(camera: &impl Camara, scene: &Scene) {
             }
             println!("{v}");
         });
+
+    let end = start.elapsed();
+    println!("{}.{:03}sec", end.as_secs(), end.subsec_nanos() / 1_000_000);
 
     for i in 0..pixel_w * pixel_h {
         let y = i / pixel_w;

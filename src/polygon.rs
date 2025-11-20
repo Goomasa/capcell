@@ -28,19 +28,20 @@ pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object
     let materials = if let Ok(mtl) = load_result.1 {
         let mut mats = mtl.iter().map(|m| load_mtl(m)).collect::<Vec<_>>();
         for _ in 0..models.len() - mtl.len() {
-            mats.push((Bxdf::Lambertian, Medium::no_medium()));
+            mats.push((Bxdf::Lambertian, Vec3::new(1.), Medium::no_medium()));
         }
         mats
     } else {
-        vec![(Bxdf::Lambertian, Medium::no_medium()); models.len()]
+        vec![(Bxdf::Lambertian, Vec3::new(1.), Medium::no_medium()); models.len()]
     };
 
     for i in 0..models.len() {
         objs.append(&mut load_obj_model(
             &models[i],
             scale,
-            materials[i].0,
-            materials[i].1,
+            &materials[i].0,
+            &materials[i].1,
+            &materials[i].2,
             freshid,
         ));
     }
@@ -51,8 +52,9 @@ pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object
 fn load_obj_model<'a>(
     model: &Model,
     scale: f64,
-    bxdf: Bxdf,
-    medium: Medium,
+    bxdf: &Bxdf,
+    color: &Color,
+    medium: &Medium,
     freshid: &mut FreshId,
 ) -> Vec<Object<'a>> {
     let mesh = &model.mesh;
@@ -92,10 +94,10 @@ fn load_obj_model<'a>(
             v2,
             v3,
             normal,
-            bxdf,
-            Texture::set_solid(Vec3::new(1.)),
+            *bxdf,
+            Texture::set_solid(*color),
             freshid,
-            medium,
+            *medium,
         );
         objs.push(obj);
     }
@@ -103,11 +105,11 @@ fn load_obj_model<'a>(
     objs
 }
 
-fn load_mtl(mtl: &Material) -> (Bxdf, Medium) {
+fn load_mtl(mtl: &Material) -> (Bxdf, Color, Medium) {
     let default_medium = Medium::no_medium();
     let emission = get_emission(mtl);
     if emission.length() > EPS {
-        return (Bxdf::Light(emission), default_medium);
+        return (Bxdf::Light(emission), emission, default_medium);
     }
 
     let basecolor = if let Some(kd) = mtl.diffuse {
@@ -149,27 +151,33 @@ fn load_mtl(mtl: &Material) -> (Bxdf, Medium) {
         };
 
         if roughness < EPS {
-            return (Bxdf::IdealGlass { ior }, medium);
+            return (Bxdf::IdealGlass { ior }, basecolor, medium);
         } else {
             return (
                 Bxdf::MicroBtdf {
                     a: roughness * roughness,
                     ior,
                 },
+                basecolor,
                 medium,
             );
         }
     }
 
-    (
-        Bxdf::CompositeBrdf {
+    if roughness > 0.99 {
+        (Bxdf::Lambertian, basecolor, default_medium)
+    } else {
+        (
+            Bxdf::CompositeBrdf {
+                basecolor,
+                metalic,
+                highlight,
+                roughness,
+            },
             basecolor,
-            metalic,
-            highlight,
-            roughness,
-        },
-        default_medium,
-    )
+            default_medium,
+        )
+    }
 }
 
 fn get_emission(mtl: &Material) -> Color {
