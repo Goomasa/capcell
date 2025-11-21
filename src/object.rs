@@ -306,12 +306,14 @@ impl<'a> Object<'a> {
                 medium,
                 ..
             } => {
-                if let Some((t, hitpoint)) = hit_triangle(p, pq, pr, normal, ray, record.distance) {
+                if let Some((t, hitpoint, (u, v))) =
+                    hit_triangle(p, pq, pr, normal, ray, record.distance)
+                {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = *normal;
                     record.bxdf = bxdf;
-                    record.color = texture.get_color(0., 0.);
+                    record.color = texture.get_color(u, v);
                     record.id = *id;
                     record.medium = medium;
                     true
@@ -544,7 +546,7 @@ pub fn hit_triangle(
     normal: &Vec3,
     ray: &Ray,
     max_dist: f64,
-) -> Option<(f64, Point3)> {
+) -> Option<(f64, Point3, (f64, f64))> {
     let n_d = dot(*normal, ray.dir);
     if n_d == 0. {
         return None;
@@ -563,7 +565,7 @@ pub fn hit_triangle(
         return None;
     }
 
-    Some((t, pos))
+    Some((t, pos, (u, v)))
 }
 
 pub fn sample_sphere(

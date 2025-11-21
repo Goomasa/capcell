@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 pub const PI: f64 = 3.14159265358979323846;
 pub const PI_INV: f64 = 1. / PI;
-pub const INF: f64 = 1e100;
+pub const INF: f64 = 1e20;
 pub const EPS: f64 = 1e-10;
 
 #[derive(Debug, Clone, Copy)]

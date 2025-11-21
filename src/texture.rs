@@ -1,7 +1,8 @@
 use std::fs::File;
 
-use crate::math::{Color, Vec3};
+use crate::math::{Color, PI, Vec3};
 
+#[allow(unused)]
 pub enum Texture<'a> {
     Solid(Color),
     Checker {
@@ -14,6 +15,7 @@ pub enum Texture<'a> {
         width: usize,
         height: usize,
     },
+    Gradation,
 }
 
 #[allow(unused)]
@@ -55,6 +57,16 @@ impl<'a> Texture<'a> {
                 let id_v = (height as f64 * v) as usize;
                 let id = id_v * width + id_u;
                 data[id]
+            }
+            Texture::Gradation => {
+                let theta = PI * v;
+                let phi = 2. * PI * u;
+                (Vec3(
+                    theta.sin() * phi.cos(),
+                    theta.sin() * phi.sin(),
+                    theta.cos(),
+                ) + Vec3::new(1.))
+                    / 2.
             }
         }
     }

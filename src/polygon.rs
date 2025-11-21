@@ -118,10 +118,10 @@ fn load_mtl(mtl: &Material) -> (Bxdf, Color, Medium) {
         Vec3::new(1.)
     };
 
-    let highlight = if let Some(ks) = mtl.specular {
-        Vec3(ks[0] as f64, ks[1] as f64, ks[2] as f64)
+    let specular = if let Some(ks) = mtl.specular {
+        (ks[0] + ks[1] + ks[2]) as f64 / 3.
     } else {
-        Vec3::new(1.)
+        1.
     };
 
     let metalic = if let Some(ns) = mtl.shininess {
@@ -168,12 +168,7 @@ fn load_mtl(mtl: &Material) -> (Bxdf, Color, Medium) {
         (Bxdf::Lambertian, basecolor, default_medium)
     } else {
         (
-            Bxdf::CompositeBrdf {
-                basecolor,
-                metalic,
-                highlight,
-                roughness,
-            },
+            Bxdf::set_comp(basecolor, metalic, specular, roughness),
             basecolor,
             default_medium,
         )

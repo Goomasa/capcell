@@ -21,5 +21,5 @@ pub fn sample_cos_hemisphere(normal: &Vec3, rand: &mut XorRand) -> Vec3 {
 }
 
 pub fn pdf_cos_hemisphere(dir: &Vec3, normal: &Vec3) -> f64 {
-    fmax(dot(*dir, *normal) * PI_INV, 0.)
+    fmax(dot(*dir, *normal).abs() * PI_INV, 0.)
 }

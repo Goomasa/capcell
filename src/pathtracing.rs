@@ -14,7 +14,7 @@ use crate::{
 };
 
 const DEPTH: u32 = 6;
-const MAX_DEPTH: u32 = 20;
+const MAX_DEPTH: u32 = 15;
 
 pub struct Pathtracing<'a> {
     record: HitRecord<'a>,
@@ -24,7 +24,7 @@ pub struct Pathtracing<'a> {
     throughput: Vec3,
     rad: Color,
     pt_sample_pdf: f64,
-    medium_stack: Vec<(f64, &'a Medium)>, // (ior, scattering_coeff, extinction_coeff, g)
+    medium_stack: Vec<(f64, &'a Medium)>, // (ior, medium)
 }
 
 impl<'a> Pathtracing<'a> {
