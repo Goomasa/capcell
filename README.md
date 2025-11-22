@@ -33,6 +33,14 @@ cargo run --release
 
 <img src="images/water.jpg" width=60% height=60%/>
 
+<img src="images/bunny.jpg" width=60% height=60%/>
+
+Stanford bunny: 
+
+> © Copyright Stanford University – Computer Graphics Laboratory
+
+> [https://graphics.stanford.edu/data/3Dscanrep/](http://graphics.stanford.edu/data/3Dscanrep/)
+
 ## References
 
 - Brian Karis, Epic Games, Real Shading in Unreal Engine 4, 2013

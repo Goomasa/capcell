@@ -3,12 +3,12 @@ use crate::{
     object::{Axis, Object},
 };
 
-const T_OBJ: f64 = 1.2;
+const T_OBJ: f64 = 1.0;
 const T_AABB: f64 = 1.0;
 
 pub struct BvhNode {
     pub bbox: AABB,
-    pub children: (i32, i32), //(left-id, right-id), when leaf, -1
+    pub left_id: i32, // when leaf, -1
     pub elements: Vec<usize>,
 }
 
@@ -19,15 +19,15 @@ impl BvhNode {
         let bbox = AABB::entire_box(objs);
         BvhNode {
             bbox,
-            children: (-1, -1),
+            left_id: -1,
             elements,
         }
     }
 
-    fn new(bbox: AABB, children: (i32, i32), elements: Vec<usize>) -> Self {
+    fn new(bbox: AABB, children: i32, elements: Vec<usize>) -> Self {
         BvhNode {
             bbox,
-            children,
+            left_id: children,
             elements,
         }
     }
@@ -107,16 +107,16 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
 
             let left_node = BvhNode::new(
                 AABB::entire_box(&left),
-                (-1, -1),
+                -1,
                 left.iter().map(|obj| obj.get_id() as usize).collect(),
             );
             let right_node = BvhNode::new(
                 AABB::entire_box(&right),
-                (-1, -1),
+                -1,
                 right.iter().map(|obj| obj.get_id() as usize).collect(),
             );
 
-            tree[idx].children = (tree.len() as i32, (tree.len() + 1) as i32);
+            tree[idx].left_id = tree.len() as i32;
             tree[idx].elements.clear();
             tree.push(left_node);
             tree.push(right_node);

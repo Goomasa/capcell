@@ -9,7 +9,6 @@ pub struct Ray {
     pub dir: Vec3,
 }
 
-#[derive(Clone, Copy)]
 pub struct HitRecord<'a> {
     pub distance: f64,
     pub hitpoint: Point3,

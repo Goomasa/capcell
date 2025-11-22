@@ -1,4 +1,3 @@
-use crate::polygon::load_obj;
 #[allow(unused)]
 use crate::{
     camera::{LensModel, PinholeModel},
@@ -9,6 +8,13 @@ use crate::{
     render::render,
     scene::Scene,
     texture::{Texture, load_hdr},
+};
+
+#[allow(unused)]
+use crate::{
+    math::fmax,
+    polygon::{obj_handler::load_obj, ply_handler::load_ply},
+    random::XorRand,
 };
 
 mod aabb;
@@ -74,7 +80,7 @@ pub fn cornel_box() {
         Axis::Y(false),
         Vec3(-5., 49., -20.),
         Vec3(5., 49., -30.),
-        Bxdf::Light(Vec3(80., 80., 70.)),
+        Bxdf::Light(Vec3(50., 50., 40.)),
         Texture::set_solid(Vec3::zero()),
         obj_id,
     );
@@ -94,24 +100,37 @@ pub fn cornel_box() {
         Bxdf::IdealGlass { ior: 1.334 },
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
-        Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.002, 0.0002), 0.7),
+        Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.003, 0.0002), 0.5),
     );
 
     let mut objects = vec![floor, ceil, left, right, back, l1, s1, water];
     objects.append(&mut load_obj("assets/cuboid.obj", 1., obj_id));
 
-    let camera = LensModel::new(
+    let rand = &mut XorRand::new(25);
+    for _ in 0..20 {
+        let y = rand.next01() * 40. + 5.;
+        let x = rand.next01() * fmax(y / 4., 2.) - 20.;
+        let z = -rand.next01() * fmax(y / 4., 2.) - 5.;
+        let r = rand.next01() * fmax(y / 15., 1.);
+        let bubble = Object::set_sphere(
+            Vec3(x, y, z),
+            r,
+            Bxdf::IdealGlass { ior: 1. },
+            Texture::set_solid(Vec3::new(1.)),
+            obj_id,
+        );
+        objects.push(bubble);
+    }
+
+    let camera = PinholeModel::new(
+        Vec3(0., 25., 75.),
         600,
         600,
-        Vec3(0., 0., -1.).normalize(),
-        Vec3(0., 25., 120.),
         30.,
-        2.,
-        42.,
-        96.,
-        100.,
-        4,
-        4,
+        Vec3(0., 0., -1.).normalize(),
+        40.,
+        3,
+        3,
     );
 
     let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
@@ -119,117 +138,67 @@ pub fn cornel_box() {
     let _ = render(&camera, &scene);
 }
 
-#[allow(unused)]
-fn spheres() {
+pub fn material_test() {
     let obj_id = &mut FreshId::new();
 
     let floor = Object::set_rect(
         Axis::Y(true),
-        Vec3(-25., 10., -13.),
-        Vec3(25., 10., -52.),
+        Vec3(-200., 10., 200.),
+        Vec3(200., 10., -200.),
         Bxdf::Lambertian,
-        Texture::set_solid(Vec3::new(0.99)),
+        Texture::set_checker(40, Vec3::new(0.1), Vec3::new(0.8)),
         obj_id,
     );
 
     let light = Object::set_rect(
         Axis::Y(false),
-        Vec3(-15., 40., -10.),
-        Vec3(15., 40., -30.),
-        Bxdf::Light(Vec3::new(5.)),
-        Texture::set_solid(Vec3::new(10.)),
+        Vec3(-15., 50., -5.),
+        Vec3(15., 50., -35.),
+        Bxdf::Light(Vec3::new(3.)),
+        Texture::set_solid(Vec3::new(3.)),
         obj_id,
     );
 
-    let basecolor = Vec3(1., 0.1, 0.1);
-    let specular = 0.7;
-    let metalic = 0.5;
-    let roughness = 0.1;
-
-    let s1 = Object::set_sphere(
-        Vec3(-12., 15., -20.),
-        5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness),
+    let s1 = Object::set_sphere_with_medium(
+        Vec3(-1., 17., -10.),
+        7.,
+        Bxdf::IdealGlass { ior: 1.5 },
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
+        Medium::new(Vec3::new(0.2), Vec3(0.2, 0.1, 0.2), 0.7),
     );
 
     let s2 = Object::set_sphere(
-        Vec3(0., 15., -20.),
-        5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.2),
-        Texture::set_solid(Vec3::new(1.)),
-        obj_id,
-    );
-
-    let s3 = Object::set_sphere_with_medium(
-        Vec3(12., 15., -20.),
-        5.,
-        Bxdf::NoSurface,
-        Texture::set_solid(Vec3::new(1.)),
-        obj_id,
-        Medium::new(Vec3::new(0.3), Vec3(0.1, 0.3, 0.3), 0.5),
-    );
-
-    let s4 = Object::set_sphere(
-        Vec3(-12., 15., -32.),
-        5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.4),
-        Texture::set_solid(Vec3::new(1.)),
-        obj_id,
-    );
-
-    let s5 = Object::set_sphere(
-        Vec3(0., 15., -32.),
-        5.,
-        Bxdf::set_comp(basecolor, metalic, specular, roughness + 0.6),
-        Texture::set_solid(Vec3::new(1.)),
-        obj_id,
-    );
-
-    let s6 = Object::set_sphere(
-        Vec3(12., 15., -32.),
-        5.,
+        Vec3(38., 17., -10.),
+        7.,
         Bxdf::Lambertian,
-        Texture::set_solid(basecolor),
+        Texture::Gradation,
         obj_id,
     );
 
-    let s7 = Object::set_sphere(
-        Vec3(-12., 15., -44.),
-        5.,
-        Bxdf::MicroBtdf { a: 0.2, ior: 1.5 },
-        Texture::set_solid(Vec3(1., 0.7, 0.7)),
+    let mut objects = vec![floor, light, s1, s2];
+    objects.append(&mut load_ply(
+        "assets/bunny.ply",
+        120.,
+        Vec3(20., 7., -11.),
+        Vec3::new(1.),
+        Bxdf::set_comp(Vec3(1., 0.1, 0.1), 0.5, 0.7, 0.2),
+        Medium::no_medium(),
         obj_id,
-    );
+    ));
 
-    let s8 = Object::set_sphere(
-        Vec3(0., 15., -44.),
-        5.,
-        Bxdf::MicroBrdf { ax: 0.2, ay: 0.5 },
-        Texture::set_solid(basecolor),
-        obj_id,
-    );
-
-    let s9 = Object::set_sphere(
-        Vec3(12., 15., -44.),
-        5.,
-        Bxdf::MicroBrdf { ax: 0.5, ay: 0.2 },
-        Texture::set_solid(basecolor),
-        obj_id,
-    );
-
-    let mut objects = vec![floor, light, s1, s2, s3, s4, s5, s6, s7, s8, s9];
-
-    let camera = PinholeModel::new(
-        Vec3(0., 41., -2.),
-        400,
-        400,
-        40.,
-        Vec3(0., -1., -1.).normalize(),
+    let camera = LensModel::new(
+        800,
+        450,
+        Vec3(0.27, -0.5, -1.).normalize(),
+        Vec3(3., 41., 32.),
         30.,
-        6,
-        6,
+        2.,
+        15.,
+        29.,
+        100.,
+        14,
+        14,
     );
 
     let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
@@ -238,6 +207,6 @@ fn spheres() {
 }
 
 fn main() {
-    cornel_box();
-    //spheres();
+    //cornel_box();
+    material_test();
 }

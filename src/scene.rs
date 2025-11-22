@@ -63,15 +63,14 @@ impl<'a> Scene<'a> {
     where
         'a: 'b,
     {
-        let (l, r) = node.children;
         if node.bbox.hit(ray, record) {
-            if l == -1 {
+            if node.left_id == -1 {
                 for i in node.elements.iter() {
-                    let _ = self.objects[*i].hit(ray, record);
+                    self.objects[*i].hit(ray, record);
                 }
             } else {
-                let _ = self.intersect_obj(ray, record, &self.bvh_tree[l as usize]);
-                let _ = self.intersect_obj(ray, record, &self.bvh_tree[r as usize]);
+                self.intersect_obj(ray, record, &self.bvh_tree[node.left_id as usize]);
+                self.intersect_obj(ray, record, &self.bvh_tree[node.left_id as usize + 1]);
             }
         }
         record.id != -1
@@ -91,7 +90,7 @@ impl<'a> Scene<'a> {
         ray: &mut Ray,
         coeff_ex: &Vec3,
         light_id: i32,
-        distance: f64,
+        distance: &f64,
     ) -> (Vec3, Color) {
         // retrun (transmittances, emission)
         let mut has_medium = coeff_ex.0 > 0.;
@@ -142,7 +141,7 @@ impl<'a> Scene<'a> {
         let mut ray = Ray { org: *org, dir };
 
         let (transmittance, emission) =
-            self.calc_transmittance(&mut ray, coeff_ex, light.get_id(), distance);
+            self.calc_transmittance(&mut ray, coeff_ex, light.get_id(), &distance);
         if transmittance.0 < 0. {
             return nee_result;
         }
