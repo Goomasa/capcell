@@ -129,8 +129,8 @@ pub fn cornel_box() {
         30.,
         Vec3(0., 0., -1.).normalize(),
         40.,
-        3,
-        3,
+        4,
+        4,
     );
 
     let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
@@ -197,8 +197,8 @@ pub fn material_test() {
         15.,
         29.,
         100.,
-        14,
-        14,
+        4,
+        4,
     );
 
     let scene = Scene::new(&mut objects, Texture::set_solid(Vec3::zero()));
@@ -207,6 +207,6 @@ pub fn material_test() {
 }
 
 fn main() {
-    //cornel_box();
-    material_test();
+    cornel_box();
+    //material_test();
 }

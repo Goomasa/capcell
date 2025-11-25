@@ -74,12 +74,12 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
             let mut box2 = AABB::empty();
 
             for i in 0..size - 1 {
-                box1 = box1 + objects[i].get_bbox();
+                box1 = box1 + &objects[i].bbox;
                 s1_area[i] = box1.get_area();
             }
 
             for i in (1..size).rev() {
-                box2 = box2 + objects[i].get_bbox();
+                box2 = box2 + &objects[i].bbox;
                 let s2_area = box2.get_area();
                 let cost = 2. * T_AABB
                     + (s1_area[i - 1] * i as f64 + s2_area * (size - i) as f64)
@@ -108,12 +108,12 @@ pub fn construct_bvh(scene_objs: &Vec<&Object>) -> BvhTree {
             let left_node = BvhNode::new(
                 AABB::entire_box(&left),
                 -1,
-                left.iter().map(|obj| obj.get_id() as usize).collect(),
+                left.iter().map(|obj| obj.id as usize).collect(),
             );
             let right_node = BvhNode::new(
                 AABB::entire_box(&right),
                 -1,
-                right.iter().map(|obj| obj.get_id() as usize).collect(),
+                right.iter().map(|obj| obj.id as usize).collect(),
             );
 
             tree[idx].left_id = tree.len() as i32;

@@ -2,7 +2,7 @@ use crate::{
     bvh::{BvhNode, BvhTree, construct_bvh},
     material::{bxdf::Bxdf, medium::pdfs_sample_distance},
     math::{Color, Point3, Vec3, dot},
-    object::{Object, pdf_sample_rect, pdf_sample_sphere, pdf_sample_tri},
+    object::{Object, Shape, pdf_sample_rect, pdf_sample_sphere, pdf_sample_tri},
     random::XorRand,
     ray::{HitRecord, Ray},
     texture::Texture,
@@ -35,12 +35,9 @@ pub struct Scene<'a> {
 
 impl<'a> Scene<'a> {
     pub fn new(objs: &'a mut Vec<Object>, back: Texture<'a>) -> Self {
-        objs.sort_by(|o1, o2| o1.get_id().cmp(&o2.get_id()));
+        objs.sort_by(|o1, o2| o1.id.cmp(&o2.id));
         objs.shrink_to_fit();
-        let lights = objs
-            .iter()
-            .filter(|obj| obj.get_bxdf().is_light())
-            .collect();
+        let lights = objs.iter().filter(|obj| obj.bxdf.is_light()).collect();
 
         let tmp_objs = objs.iter().collect();
         let mut bvh_tree = construct_bvh(&tmp_objs);
@@ -78,10 +75,10 @@ impl<'a> Scene<'a> {
 
     pub fn pdf_sample_obj(&self, org: &Point3, record: &HitRecord) -> f64 {
         let obj = &self.objects[record.id as usize];
-        match &obj {
-            Object::Sphere { center, radius, .. } => pdf_sample_sphere(org, center, *radius),
-            Object::Rectangle { .. } => pdf_sample_rect(org, &record.hitpoint, obj, record.normal),
-            Object::Triangle { .. } => pdf_sample_tri(org, &record.hitpoint, obj, record.normal),
+        match &obj.shape {
+            Shape::Sphere { center, radius, .. } => pdf_sample_sphere(org, center, *radius),
+            Shape::Rectangle { .. } => pdf_sample_rect(org, &record.hitpoint, obj, record.normal),
+            Shape::Triangle { .. } => pdf_sample_tri(org, &record.hitpoint, obj, record.normal),
         }
     }
 
@@ -141,7 +138,7 @@ impl<'a> Scene<'a> {
         let mut ray = Ray { org: *org, dir };
 
         let (transmittance, emission) =
-            self.calc_transmittance(&mut ray, coeff_ex, light.get_id(), &distance);
+            self.calc_transmittance(&mut ray, coeff_ex, light.id, &distance);
         if transmittance.0 < 0. {
             return nee_result;
         }

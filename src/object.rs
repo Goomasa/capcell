@@ -13,26 +13,16 @@ pub enum Axis {
 }
 
 #[allow(unused)]
-pub enum Object<'a> {
+pub enum Shape {
     Sphere {
         center: Point3,
         radius: f64,
-        bxdf: Bxdf,
-        texture: Texture<'a>,
-        obj_id: i32,
-        bbox: AABB,
-        medium: Medium,
     },
 
     Rectangle {
         axis: Axis,
         min_p: Point3,
         max_p: Point3,
-        bxdf: Bxdf,
-        texture: Texture<'a>,
-        obj_id: i32,
-        bbox: AABB,
-        medium: Medium,
     },
 
     Triangle {
@@ -40,12 +30,17 @@ pub enum Object<'a> {
         pq: Point3,
         pr: Point3,
         normal: Vec3,
-        bxdf: Bxdf,
-        texture: Texture<'a>,
-        obj_id: i32,
-        bbox: AABB,
-        medium: Medium,
     },
+}
+
+#[allow(unused)]
+pub struct Object<'a> {
+    pub shape: Shape,
+    pub bxdf: Bxdf,
+    pub texture: Texture<'a>,
+    pub id: i32,
+    pub bbox: AABB,
+    pub medium: Medium,
 }
 
 #[allow(unused)]
@@ -57,12 +52,12 @@ impl<'a> Object<'a> {
         texture: Texture<'a>,
         freshid: &mut FreshId,
     ) -> Object<'a> {
-        Object::Sphere {
-            center,
-            radius,
+        let shape = Shape::Sphere { center, radius };
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB {
                 min_p: center - Vec3::new(radius),
                 max_p: center + Vec3::new(radius),
@@ -79,12 +74,12 @@ impl<'a> Object<'a> {
         freshid: &mut FreshId,
         medium: Medium,
     ) -> Object<'a> {
-        Object::Sphere {
-            center,
-            radius,
+        let shape = Shape::Sphere { center, radius };
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB {
                 min_p: center - Vec3::new(radius),
                 max_p: center + Vec3::new(radius),
@@ -103,14 +98,13 @@ impl<'a> Object<'a> {
     ) -> Object<'a> {
         let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
         let min_p = Vec3(fmin(p.0, q.0), fmin(p.1, q.1), fmin(p.2, q.2));
+        let shape = Shape::Rectangle { axis, min_p, max_p };
 
-        Object::Rectangle {
-            axis,
-            min_p,
-            max_p,
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
             medium: Medium::no_medium(),
         }
@@ -127,14 +121,13 @@ impl<'a> Object<'a> {
     ) -> Object<'a> {
         let max_p = Vec3(fmax(p.0, q.0), fmax(p.1, q.1), fmax(p.2, q.2));
         let min_p = Vec3(fmin(p.0, q.0), fmin(p.1, q.1), fmin(p.2, q.2));
+        let shape = Shape::Rectangle { axis, min_p, max_p };
 
-        Object::Rectangle {
-            axis,
-            min_p,
-            max_p,
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
             medium,
         }
@@ -159,14 +152,18 @@ impl<'a> Object<'a> {
             fmax(p.1, fmax(q.1, r.1)),
             fmax(p.2, fmax(q.2, r.2)),
         );
-        Object::Triangle {
+        let shape = Shape::Triangle {
             p,
             pq: q - p,
             pr: r - p,
             normal,
+        };
+
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
             medium: Medium::no_medium(),
         }
@@ -192,14 +189,18 @@ impl<'a> Object<'a> {
             fmax(p.1, fmax(q.1, r.1)),
             fmax(p.2, fmax(q.2, r.2)),
         );
-        Object::Triangle {
+        let shape = Shape::Triangle {
             p,
             pq: q - p,
             pr: r - p,
             normal,
+        };
+
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
             medium,
         }
@@ -225,14 +226,18 @@ impl<'a> Object<'a> {
             fmax(p.1, fmax(q.1, r.1)),
             fmax(p.2, fmax(q.2, r.2)),
         );
-        Object::Triangle {
+        let shape = Shape::Triangle {
             p,
             pq: q - p,
             pr: r - p,
             normal,
+        };
+
+        Object {
+            shape,
             bxdf,
             texture,
-            obj_id: freshid.gen_id(),
+            id: freshid.gen_id(),
             bbox: AABB { min_p, max_p }.fix(),
             medium,
         }
@@ -242,69 +247,44 @@ impl<'a> Object<'a> {
     where
         'a: 'b,
     {
-        match self {
-            Object::Sphere {
-                center,
-                radius,
-                bxdf,
-                texture,
-                obj_id: id,
-                medium,
-                ..
-            } => {
+        match &self.shape {
+            Shape::Sphere { center, radius } => {
                 if let Some((t, hitpoint, normal)) =
                     hit_sphere(center, radius, ray, record.distance)
                 {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = normal;
-                    record.bxdf = bxdf;
+                    record.bxdf = &self.bxdf;
                     record.color = {
                         let (u, v) = sphere_uv(center, &hitpoint);
-                        texture.get_color(u, v)
+                        self.texture.get_color(u, v)
                     };
-                    record.id = *id;
-                    record.medium = medium;
+                    record.id = self.id;
+                    record.medium = &self.medium;
                     true
                 } else {
                     false
                 }
             }
-            Object::Rectangle {
-                axis,
-                min_p,
-                max_p,
-                bxdf,
-                texture,
-                obj_id: id,
-                medium,
-                ..
-            } => {
+            Shape::Rectangle { axis, min_p, max_p } => {
                 if let Some((t, hitpoint, normal, (u, v))) =
                     hit_rect(axis, max_p, min_p, ray, record.distance)
                 {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = normal;
-                    record.bxdf = bxdf;
-                    record.color = texture.get_color(u, v);
-                    record.id = *id;
-                    record.medium = medium;
+                    record.bxdf = &self.bxdf;
+                    record.color = self.texture.get_color(u, v);
+                    record.id = self.id;
+                    record.medium = &self.medium;
                     true
                 } else {
                     false
                 }
             }
-            Object::Triangle {
-                p,
-                pq,
-                pr,
-                normal,
-                bxdf,
-                texture,
-                obj_id: id,
-                medium,
-                ..
+            Shape::Triangle {
+                p, pq, pr, normal, ..
             } => {
                 if let Some((t, hitpoint, (u, v))) =
                     hit_triangle(p, pq, pr, normal, ray, record.distance)
@@ -312,10 +292,10 @@ impl<'a> Object<'a> {
                     record.distance = t;
                     record.hitpoint = hitpoint;
                     record.normal = *normal;
-                    record.bxdf = bxdf;
-                    record.color = texture.get_color(u, v);
-                    record.id = *id;
-                    record.medium = medium;
+                    record.bxdf = &self.bxdf;
+                    record.color = self.texture.get_color(u, v);
+                    record.id = self.id;
+                    record.medium = &self.medium;
                     true
                 } else {
                     false
@@ -325,58 +305,33 @@ impl<'a> Object<'a> {
     }
 
     pub fn pdf_sample_surface(&self, org: &Point3, rand: &mut XorRand) -> (f64, Vec3, f64) {
-        match self {
-            Object::Sphere { center, radius, .. } => sample_sphere(*org, center, *radius, rand),
-            Object::Rectangle {
+        match &self.shape {
+            Shape::Sphere { center, radius, .. } => sample_sphere(*org, center, *radius, rand),
+            Shape::Rectangle {
                 axis, min_p, max_p, ..
             } => sample_rect(*org, axis, max_p, min_p, rand),
-            Object::Triangle {
+            Shape::Triangle {
                 p, pq, pr, normal, ..
             } => sample_triangle(*org, p, pq, pr, normal, self.get_area(), rand),
         }
     }
 
-    pub fn get_bxdf(&self) -> &Bxdf {
-        match self {
-            Object::Sphere { bxdf, .. }
-            | Object::Rectangle { bxdf, .. }
-            | Object::Triangle { bxdf, .. } => bxdf,
-        }
-    }
-
-    pub fn get_id(&self) -> i32 {
-        match self {
-            Object::Sphere { obj_id: id, .. }
-            | Object::Rectangle { obj_id: id, .. }
-            | Object::Triangle { obj_id: id, .. } => *id,
-        }
-    }
-
-    pub fn get_bbox(&self) -> &AABB {
-        match self {
-            Object::Sphere { bbox, .. }
-            | Object::Rectangle { bbox, .. }
-            | Object::Triangle { bbox, .. } => bbox,
-        }
-    }
-
     pub fn get_area(&self) -> f64 {
-        match self {
-            Object::Sphere { radius, .. } => 4. * PI * radius * radius,
-            Object::Rectangle {
+        match &self.shape {
+            Shape::Sphere { radius, .. } => 4. * PI * radius * radius,
+            Shape::Rectangle {
                 axis, min_p, max_p, ..
             } => match axis {
                 Axis::X(_) => (max_p.1 - min_p.1) * (max_p.2 - min_p.2),
                 Axis::Y(_) => (max_p.0 - min_p.0) * (max_p.2 - min_p.2),
                 Axis::Z(_) => (max_p.0 - min_p.0) * (max_p.1 - min_p.1),
             },
-            Object::Triangle { pq, pr, .. } => cross(*pq, *pr).length() / 2.,
+            Shape::Triangle { pq, pr, .. } => cross(*pq, *pr).length() / 2.,
         }
     }
 
     pub fn get_center(&self) -> Point3 {
-        let bbox = self.get_bbox();
-        (bbox.min_p + bbox.max_p) / 2.
+        (self.bbox.min_p + self.bbox.max_p) / 2.
     }
 }
 

@@ -123,7 +123,7 @@ impl AABB {
     pub fn entire_box(objs: &Vec<&Object>) -> Self {
         let mut bbox = AABB::empty();
         for obj in objs {
-            bbox = bbox + obj.get_bbox();
+            bbox = bbox + &obj.bbox;
         }
         bbox
     }
