@@ -80,7 +80,7 @@ pub fn cornel_box() {
         Axis::Y(false),
         Vec3(-5., 49., -20.),
         Vec3(5., 49., -30.),
-        Bxdf::Light(Vec3(50., 50., 40.)),
+        Bxdf::Light(Vec3(30., 30., 30.)),
         Texture::set_solid(Vec3::zero()),
         obj_id,
     );
@@ -100,7 +100,7 @@ pub fn cornel_box() {
         Bxdf::IdealGlass { ior: 1.334 },
         Texture::set_solid(Vec3::new(1.)),
         obj_id,
-        Medium::new(Vec3(0.004, 0.005, 0.006), Vec3(0.006, 0.003, 0.0002), 0.5),
+        Medium::new(Vec3(0.005, 0.01, 0.018), Vec3(0.01, 0.006, 0.0004), 0.5),
     );
 
     let mut objects = vec![floor, ceil, left, right, back, l1, s1, water];

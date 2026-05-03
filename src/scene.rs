@@ -84,12 +84,13 @@ impl<'a> Scene<'a> {
 
     pub fn calc_transmittance(
         &self,
-        ray: &mut Ray,
+        ray: &Ray,
         coeff_ex: &Vec3,
         light_id: i32,
         distance: &f64,
     ) -> (Vec3, Color) {
         // retrun (transmittances, emission)
+        let mut ray = ray.clone();
         let mut has_medium = coeff_ex.0 > 0.;
         let mut now_coeff = if has_medium { *coeff_ex } else { Vec3::zero() };
         let mut transmittance = Vec3::new(1.);
@@ -97,14 +98,14 @@ impl<'a> Scene<'a> {
 
         loop {
             record = HitRecord::init_with_distance(distance + 0.1);
-            if !self.intersect_obj(ray, &mut record, &self.bvh_tree[0]) {
+            if !self.intersect_obj(&ray, &mut record, &self.bvh_tree[0]) {
                 return (Vec3::new(-1.), Vec3::zero());
             }
 
             if record.id == light_id && dot(ray.dir, record.normal) < 0. {
                 if has_medium {
                     transmittance =
-                        transmittance * pdfs_sample_distance(&now_coeff, record.distance);
+                        transmittance * pdfs_sample_distance(&now_coeff, record.distance, true);
                 }
 
                 return (transmittance, record.bxdf.get_emission());
@@ -113,7 +114,7 @@ impl<'a> Scene<'a> {
             if let Bxdf::NoSurface = record.bxdf {
                 if has_medium {
                     transmittance =
-                        transmittance * pdfs_sample_distance(&now_coeff, record.distance);
+                        transmittance * pdfs_sample_distance(&now_coeff, record.distance, true);
                 }
                 has_medium = !has_medium;
                 now_coeff = record.medium.coeff_ex;
@@ -135,10 +136,10 @@ impl<'a> Scene<'a> {
         let light = self.lights[idx as usize];
 
         let (pdf, dir, distance) = light.pdf_sample_surface(org, rand);
-        let mut ray = Ray { org: *org, dir };
+        let ray = Ray { org: *org, dir };
 
         let (transmittance, emission) =
-            self.calc_transmittance(&mut ray, coeff_ex, light.id, &distance);
+            self.calc_transmittance(&ray, coeff_ex, light.id, &distance);
         if transmittance.0 < 0. {
             return nee_result;
         }

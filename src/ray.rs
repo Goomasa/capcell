@@ -4,6 +4,7 @@ use crate::{
     math::{Color, INF, Point3, Vec3},
 };
 
+#[derive(Clone)]
 pub struct Ray {
     pub org: Point3,
     pub dir: Vec3,

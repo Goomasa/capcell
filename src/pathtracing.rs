@@ -399,13 +399,16 @@ impl<'a> Pathtracing<'a> {
         let pdf_rgb = self.throughput / self.throughput.sum();
         let sampled_coeff_ex = sample_rgb(&pdf_rgb, &medium.coeff_ex, rand);
         let dist = -1. * (1. - rand.next01()).ln() / sampled_coeff_ex;
-        let pdf_sample_dist = pdfs_sample_distance(&medium.coeff_ex, dist);
+
+        self.record = HitRecord::init_with_distance(dist);
+        let is_hit = scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]);
+        let dist = fmin(self.record.distance, dist);
+        let pdf_sample_dist = pdfs_sample_distance(&medium.coeff_ex, dist, is_hit);
 
         let mis_weight = pdf_sample_dist / (pdf_sample_dist * pdf_rgb).sum();
         self.throughput = self.throughput * mis_weight;
 
-        self.record = HitRecord::init_with_distance(dist);
-        if !scene.intersect_obj(&self.now_ray, &mut self.record, &scene.bvh_tree[0]) {
+        if !is_hit {
             self.throughput = self.throughput * (medium.coeff_sc / medium.coeff_ex);
             let org = self.now_ray.org + self.now_ray.dir * dist;
             let (dir, hg_pdf) = sample_phase(&-self.now_ray.dir, medium.g as f64, rand);

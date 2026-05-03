@@ -14,9 +14,9 @@ pub struct Medium {
 impl Medium {
     pub fn new(coeff_sc: Color, coeff_ab: Color, g: f32) -> Self {
         let coeff_sc = Vec3(
-            fmax(coeff_sc.0, 1e-4),
-            fmax(coeff_sc.1, 1e-4),
-            fmax(coeff_sc.2, 1e-4),
+            fmax(coeff_sc.0, 1e-6),
+            fmax(coeff_sc.1, 1e-6),
+            fmax(coeff_sc.2, 1e-6),
         );
 
         Medium {
@@ -35,8 +35,14 @@ impl Medium {
     }
 }
 
-pub fn pdfs_sample_distance(coeff_ex: &Vec3, distance: f64) -> Vec3 {
-    let calc = |c: f64| (-distance * c).exp();
+pub fn pdfs_sample_distance(coeff_ex: &Vec3, distance: f64, is_hit: bool) -> Vec3 {
+    let calc = |c: f64| {
+        if !is_hit {
+            (-distance * c).exp() * c
+        } else {
+            (-distance * c).exp()
+        }
+    };
     Vec3(calc(coeff_ex.0), calc(coeff_ex.1), calc(coeff_ex.2))
 }
 

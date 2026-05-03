@@ -17,7 +17,8 @@ pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object
     };
 
     let load_result = tobj::load_obj(path, &load_opt);
-    if let Err(_) = load_result {
+    if let Err(msg) = load_result {
+        println!("{}", msg);
         return Vec::new();
     }
 
@@ -32,6 +33,7 @@ pub fn load_obj<'a>(path: &str, scale: f64, freshid: &mut FreshId) -> Vec<Object
         }
         mats
     } else {
+        println!("failed to load mtl");
         vec![(Bxdf::Lambertian, Vec3::new(1.), Medium::no_medium()); models.len()]
     };
 
@@ -93,7 +95,7 @@ fn load_obj_model<'a>(
             v1,
             v2,
             v3,
-            normal,
+            normal.normalize(),
             *bxdf,
             Texture::set_solid(*color),
             freshid,
@@ -134,17 +136,16 @@ fn load_mtl(mtl: &Material) -> (Bxdf, Color, Medium) {
     let roughness = 1. - metalic;
 
     let dissolve = if let Some(d) = mtl.dissolve { d } else { 1. };
+    let (coeff_sc, coeff_ab, g) = get_medium_param(mtl);
 
-    if dissolve < 0.5 {
+    if dissolve < 0.5 || (coeff_ab.0 > 0. || coeff_sc.0 > 0.) {
         let ior = if let Some(ni) = mtl.optical_density {
             ni as f64
         } else {
             1.5
         };
 
-        let (coeff_sc, coeff_ab, g) = get_medium_param(mtl);
-
-        let medium = if coeff_sc.length() < 0. || coeff_ab.length() < 0. {
+        let medium = if coeff_sc.0 < 0. || coeff_ab.0 < 0. {
             default_medium
         } else {
             Medium::new(coeff_sc, coeff_ab, g)

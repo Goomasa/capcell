@@ -1,7 +1,7 @@
 use crate::math::{Color, Vec3, fmax, lerp_vec3};
 
 #[allow(unused)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Bxdf {
     NoSurface,
     Lambertian,
